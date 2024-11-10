@@ -41,8 +41,9 @@ RegisterNetEvent('ze-carbomb:plantBomb', function()
         }, {}, {}, function()
             local pos = GetEntityCoords(veh)
             local pPos = GetEntityCoords(PlayerPedId())
-            if GetDistanceBetweenCoords(pos, pPos, true)
-            PlantTime(5, veh)
+            if GetDistanceBetweenCoords(pos, pPos, true) <= 10 then
+                PlantTime(5, veh)
+            end
             TriggerServerEvent("ze-carbomb:removeBomb")
         end)
     end
@@ -68,14 +69,20 @@ function CreateCarBombMenu()
                         flags = 0,
                         task = nil,
                     }, {}, {}, function()
-                        TriggerServerEvent("ze-carbomb:removeBomb")
-                        PlantTime(time, entity)
+                        local pos = GetEntityCoords(entity)
+                        local pPos = GetEntityCoords(PlayerPedId())
+                        if GetDistanceBetweenCoords(pos, pPos, true) <= Config.DistanceFromCar then
+                            TriggerServerEvent("ze-carbomb:removeBomb")
+                            PlantTime(time, entity)
+                        else
+                            QBCore.Functions.Notify('Failed to plant bomb - car got away!', 'error', 5000)
+                        end
                     end)
                        
                 end,
                 label = "Plant By Time",
                 icon = 'fas fa-clock',
-                item = 'carbomb'
+                item = Config.BombItem
             },
             {
                 num = 2,
@@ -93,13 +100,18 @@ function CreateCarBombMenu()
                             flags = 0,
                             task = nil,
                         }, {}, {}, function()
-                            TriggerServerEvent("ze-carbomb:removeBomb")
-                            PlantDistance(GetEntityCoords(entity), distance, entity)
+                            if GetDistanceBetweenCoords(pos, pPos, true) <= Config.DistanceFromCar then
+                                TriggerServerEvent("ze-carbomb:removeBomb")
+                                PlantDistance(GetEntityCoords(entity), distance, entity)
+                            else
+                                QBCore.Functions.Notify('Failed to plant bomb - car got away!', 'error', 5000)
+                            end
+                           
                         end)
                 end,
                 label = "Plant By Distance",
                 icon = 'fas fa-road',
-                item = 'carbomb'
+                item = Config.BombItem
             }, 
             {
                 num = 3,
@@ -117,13 +129,20 @@ function CreateCarBombMenu()
                         flags = 0,
                         task = nil,
                     }, {}, {}, function()
-                        TriggerServerEvent("ze-carbomb:removeBomb")
-                        PlantSpeed(speed, entity)
+                        local pos = GetEntityCoords(entity)
+                        local pPos = GetEntityCoords(PlayerPedId())
+                        if GetDistanceBetweenCoords(pos, pPos, true) <= Config.DistanceFromCar then
+                            TriggerServerEvent("ze-carbomb:removeBomb")
+                            PlantSpeed(speed, entity)
+                        else
+                            QBCore.Functions.Notify('Failed to plant bomb - car got away!', 'error', 5000)
+                        end
+                       
                     end)
                 end,
                 label = "Plant By Speed",
                 icon = 'fas fa-car',
-                item = 'carbomb'
+                item = Config.BombItem
             },                   
             {
                 num = 4,
@@ -140,23 +159,27 @@ function CreateCarBombMenu()
                         flags = 0,
                         task = nil,
                     }, {}, {}, function()
-                        TriggerServerEvent("ze-carbomb:removeBomb")
-                        PlantEntry(entity)
+                        local pos = GetEntityCoords(entity)
+                        local pPos = GetEntityCoords(PlayerPedId())
+                        if GetDistanceBetweenCoords(pos, pPos, true) <= Config.DistanceFromCar then
+                            TriggerServerEvent("ze-carbomb:removeBomb")
+                            PlantEntry(entity)
+                        else
+                            QBCore.Functions.Notify('Failed to plant bomb - car got away!', 'error', 5000)
+                        end
+                       
+                       
                     end)     
                 end,
                 label = "Plant By Entry",
                 icon = 'fas fa-door-closed',
-                item = 'carbomb'
+                item = Config.BombItem
             }
            
         },
         distance = 2.5
     })
 end
-
-Citizen.CreateThread(function()
-    
-end)
 
 Citizen.CreateThread(function()
     while true do
@@ -175,10 +198,12 @@ end
 
 function PlantDistance(pos, distance, veh)
     Citizen.CreateThread(function()
-        while true do
+        local notExploded = true
+        while notExploded do
             Citizen.Wait(100)
             if GetDistanceBetweenCoords(pos, GetEntityCoords(veh), true) >= tonumber(distance) then
                 AddExplosion(GetEntityCoords(veh), 2, 2.0, true, false, 4, false)
+                notExploded = false
                 break
             end
         end
@@ -187,10 +212,12 @@ end
 
 function PlantSpeed(speed, veh)
     Citizen.CreateThread(function()
+        local notExploded = true
         while true do
             Citizen.Wait(100)
             if tonumber(GetEntitySpeed(veh)) * 3.6 >= tonumber(speed) then
                 AddExplosion(GetEntityCoords(veh), 2, 2.0, true, false, 4, false)
+                notExploded = false
                 break
             end
         end
@@ -199,10 +226,12 @@ end
 
 function PlantEntry(veh)
     Citizen.CreateThread(function()
+        local notExploded = true
         while true do
             Citizen.Wait(100)
             if GetPedInVehicleSeat(veh, -1) ~= 0 then
                 AddExplosion(GetEntityCoords(veh), 2, 2.0, true, false, 4, false)
+                notExploded = false
                 break
             end
         end
@@ -224,6 +253,3 @@ function Input(type, head)
     })
     return dialog[type]
 end
-
-
-
