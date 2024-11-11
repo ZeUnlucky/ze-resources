@@ -11,6 +11,10 @@ QBCore.Commands.Add("pet", "Summon a pet", {{name="type", help = "Which pet type
     TriggerClientEvent("ze_pets:SpawnPet", source, type, name)
 end, 'admin')
 
+QBCore.Commands.Add("spawnobject", "Summon an object", {{name="type", help = "Which object to spawn"}}, true, function(source, args)
+    TriggerClientEvent("ze_pets:SpawnObject", source, args[1])
+end, 'admin')
+
 QBCore.Functions.CreateCallback('ze_pets:GetAllPets', function(source, cb)
     cb(SpawnedPets)
 end)
