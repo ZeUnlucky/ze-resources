@@ -1,7 +1,6 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 
 Casings = {}
-Fingerprints = {}
 Splatters = {}
 
 RegisterServerEvent("ze-evidence:RegisterNewCasing")
@@ -16,10 +15,10 @@ AddEventHandler("ze-evidence:RegisterNewCasing", function(casingEntity, weapon, 
             if weaponItem.info and weaponItem.info ~= ''  then
                 serieNumber = weaponItem.info.serie
                 if not isGloved then
-                    if Fingerprints[serieNumber] == nil then
-                        Fingerprints[serieNumber] = {}
+                    if weapon.info.hiddenPrints == nil then
+                        weapon.info.hiddenPrints = {}
                     end
-                    table.insert(Fingerprints[serieNumber], Shared.ConvertCitizenIdToFingerprint(Player.PlayerData.citizenid))
+                    table.insert(weapon.info.hiddenPrints, Shared.ConvertCitizenIdToFingerprint(Player.PlayerData.citizenid))
                 end
             end
         end
@@ -54,9 +53,9 @@ QBCore.Commands.Add("checkfinger", "Checks held gun for a fingerprint", {}, fals
     if weaponInfo then
         local weaponItem = Player.Functions.GetItemByName(weaponInfo['name'])
         if weaponItem then
-            if weaponItem.info and weaponItem.info ~= '' then
+            if weapon.info and weapon.info.hiddenPrints then
                 if Player.Functions.HasItem("pdfingerprinttape", 1) then
-                    local fingerprint = Fingerprints[weaponItem.info.serie]
+                    local fingerprint = weapon.info.hiddenPrints
                     Player.Functions.RemoveItem("pdfingerprinttape", 1)
                     TriggerClientEvent('inventory:client:ItemBox', source, QBCore.Shared.Items["pdfingerprinttape"], 'remove')
                     local info = {}
@@ -77,9 +76,8 @@ QBCore.Commands.Add("wipefinger", "Wipes fingerprint from held gun", {}, false, 
     if weaponInfo then
         local weaponItem = Player.Functions.GetItemByName(weaponInfo['name'])
         if weaponItem then
-            if weaponItem.info and weaponItem.info ~= '' then
-                Fingerprints[weaponItem.info.serie] = nil
-               
+            if weaponItem.info and weapon.info.hiddenPrints then
+                weapon.info.hiddenPrints = {}
                 QBCore.Functions.Notify(source, "Cleaned fingerprint from gun", "success", 5000)
             end
         end
