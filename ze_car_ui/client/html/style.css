@@ -1,0 +1,88 @@
+body {
+    font-family: sans-serif;
+    overflow: hidden;
+    display: none;
+}
+
+#Car_Panel
+{
+	background-color:rgb(100, 100, 100);
+	margin:auto;
+	position:absolute;
+	bottom:5%;
+	width: 40.63%;
+	left:23.68%;
+	right:23.68%;
+	height: 30.47%;
+	display:flex;
+	flex-flow:wrap;
+	justify-content:space-around;
+}
+
+.Section {
+	width:30%;
+	height:30%;
+	background-color:rgb(50,50,50);
+	
+	display:flex;
+	flex-direction:column;
+}
+
+.Right {
+	margin-left:5%;
+	
+}
+
+.Left{
+	margin-right:5%;
+}
+
+.Top{
+	margin-top:2.5%;
+}
+
+#Utilities {
+	background-color:rgb(50, 50, 50);
+	width:90%;
+	height:30%;
+	display:flex;
+	justify-content:space-around;
+}
+
+input
+{
+	width:20.85%;
+	height:28%;
+	left:28.57%;
+	margin:auto;
+}
+
+p{
+	margin:0;
+	width:40%;
+	margin-left:30%;
+	top:0%;
+	text-align:center;
+	background-color:rgb(25,25,25);
+	color:rgb(125,125,125);
+	border:1px solid black;
+}
+
+.ut_button {
+	width:20%;
+	height:30%;
+	margin-top:5%;
+	background-color:rgb(100,100,100);
+	border:0;
+}
+
+.ut_on {
+	width:20%;
+	height:30%;
+	margin-top:5%;
+	border:0;
+	background-color:rgb(75,75,75);
+}
+
+
+
