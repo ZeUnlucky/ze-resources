@@ -21,7 +21,6 @@ Citizen.CreateThread(function()
             local entID = NetworkGetNetworkIdFromEntity(created_object)
             Wait(1)
             TriggerServerEvent("ze-evidence:RegisterNewCasing", entID, GetSelectedPedWeapon(PlayerPedId()), GetEntityCoords(created_object), not Shared.ArmsWithoutGloves[GetEntityModel(PlayerPedId()) == `mp_m_freemode_01` and 'male' or 'female'][GetPedDrawableVariation(PlayerPedId(), 3)])
-            
             Citizen.Wait(5000)
         end
     end
