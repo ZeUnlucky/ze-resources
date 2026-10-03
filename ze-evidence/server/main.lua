@@ -9,8 +9,10 @@ AddEventHandler("ze-evidence:RegisterNewCasing", function(casingEntity, weapon, 
     local Player = QBCore.Functions.GetPlayer(src)
     local weaponInfo = QBCore.Shared.Weapons[weapon]
     local serieNumber = nil
+    print(('[ze-evidence:debug] shot: weapon=%s weaponInfo=%s isGloved=%s'):format(tostring(weapon), tostring(weaponInfo ~= nil), tostring(isGloved)))
     if weaponInfo then
         local weaponItem = Player.Functions.GetItemByName(weaponInfo['name'])
+        print('[ze-evidence:debug] shot: weaponItem=' .. tostring(weaponItem ~= nil) .. ' info=' .. json.encode(weaponItem and weaponItem.info))
         if weaponItem then
             if type(weaponItem.info) == 'table' then
                 serieNumber = weaponItem.info.serie
@@ -27,7 +29,9 @@ AddEventHandler("ze-evidence:RegisterNewCasing", function(casingEntity, weapon, 
                     if not alreadyPrinted then
                         table.insert(prints, fingerprint)
                         weaponItem.info.hiddenPrints = prints
+                        print('[ze-evidence:debug] shot: added print, calling SetInventory (exists=' .. tostring(Player.Functions.SetInventory ~= nil) .. ')')
                         Player.Functions.SetInventory(Player.PlayerData.items)
+                        print('[ze-evidence:debug] shot: SetInventory done')
                     end
                 end
             end
@@ -62,6 +66,7 @@ QBCore.Commands.Add("checkfinger", "Checks held gun for a fingerprint", {}, fals
     local Player = QBCore.Functions.GetPlayer(source)
     if weaponInfo then
         local weaponItem = Player.Functions.GetItemByName(weaponInfo['name'])
+        print('[ze-evidence:debug] checkfinger: weapon=' .. tostring(weapon) .. ' weaponItem=' .. tostring(weaponItem ~= nil) .. ' info=' .. json.encode(weaponItem and weaponItem.info))
         if weaponItem then
             local prints = weaponItem.info and weaponItem.info.hiddenPrints
             if prints and #prints > 0 then
