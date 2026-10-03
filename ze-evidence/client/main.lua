@@ -58,6 +58,7 @@ Citizen.CreateThread(function()
         Citizen.Wait(0)
         if IsPedShooting(PlayerPedId()) then
             Citizen.Wait(50)
+            print('[ze-evidence:debug] client: shot detected, requesting shell model')
             RequestModel(Config.ShellProp)
             while not HasModelLoaded(Config.ShellProp) do
                 Wait(500)                
@@ -73,6 +74,7 @@ Citizen.CreateThread(function()
             Wait(1)
             local entID = NetworkGetNetworkIdFromEntity(created_object)
             Wait(1)
+            print('[ze-evidence:debug] client: sending RegisterNewCasing, torso drawable=' .. GetPedDrawableVariation(PlayerPedId(), 3))
             TriggerServerEvent("ze-evidence:RegisterNewCasing", entID, GetSelectedPedWeapon(PlayerPedId()), GetEntityCoords(created_object), not Shared.ArmsWithoutGloves[GetEntityModel(PlayerPedId()) == `mp_m_freemode_01` and 'male' or 'female'][GetPedDrawableVariation(PlayerPedId(), 3)])
             Citizen.Wait(5000)
         end
