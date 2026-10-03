@@ -13,9 +13,14 @@ AddEventHandler("ze-evidence:RegisterNewCasing", function(casingEntity, weapon, 
     if weaponInfo then
         local weaponItem = Player.Functions.GetItemByName(weaponInfo['name'])
         if weaponItem then
-            if weaponItem.info and weaponItem.info ~= '' and not isGloved then
+            if weaponItem.info and weaponItem.info ~= ''  then
                 serieNumber = weaponItem.info.serie
-                Fingerprints[serieNumber] = Shared.ConvertCitizenIdToFingerprint(Player.PlayerData.citizenid)
+                if not isGloved then
+                    if Fingerprints[serieNumber] == nil then
+                        Fingerprints[serieNumber] = {}
+                    end
+                    table.insert(Fingerprints[serieNumber], Shared.ConvertCitizenIdToFingerprint(Player.PlayerData.citizenid))
+                end
             end
         end
     end
@@ -38,7 +43,8 @@ QBCore.Commands.Add("checkfinger", "Checks held gun for a fingerprint", {}, fals
                     Player.Functions.RemoveItem("pdfingerprinttape", 1)
                     TriggerClientEvent('inventory:client:ItemBox', source, QBCore.Shared.Items["pdfingerprinttape"], 'remove')
                     local info = {}
-                    if fingerprint then info.fingerprint = fingerprint end
+                    print(Shared.DumpTable(Shared.GetUniqueValuesFromTable(fingerprint)))
+                    if fingerprint then info.fingerprint = Shared.GetUniqueValuesFromTable(fingerprint) end
                     exports['qb-inventory']:AddItem(source, "usedfingerprinttape", 1, false, info, 'ze-evidence:useTape')
                 else
                     QBCore.Functions.Notify(source, "You need fingerprint tape!", "error", 5000)

@@ -197,3 +197,17 @@ Shared.ArmsWithoutGloves = {
         [165] = true
     },
 }
+
+Shared.GetUniqueValuesFromTable = function(t)
+    local unique = {}
+    local result = {}
+    if t == nil then return result end
+    for _, value in ipairs(t) do
+        if not unique[value] then
+            unique[value] = true
+            table.insert(result, value)
+        end
+    end
+    
+    return result
+end

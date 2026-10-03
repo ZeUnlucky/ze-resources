@@ -20,7 +20,6 @@ Citizen.CreateThread(function()
             Wait(1)
             local entID = NetworkGetNetworkIdFromEntity(created_object)
             Wait(1)
-            print(not Shared.ArmsWithoutGloves[GetEntityModel(PlayerPedId()) == `mp_m_freemode_01` and 'male' or 'female'][GetPedDrawableVariation(PlayerPedId(), 3)])
             TriggerServerEvent("ze-evidence:RegisterNewCasing", entID, GetSelectedPedWeapon(PlayerPedId()), GetEntityCoords(created_object), not Shared.ArmsWithoutGloves[GetEntityModel(PlayerPedId()) == `mp_m_freemode_01` and 'male' or 'female'][GetPedDrawableVariation(PlayerPedId(), 3)])
             
             Citizen.Wait(5000)
@@ -161,7 +160,6 @@ RegisterNetEvent("ze-evidence:PlayerJoined", function(Splatters, Casings)
         end
         for k, v in pairs(Casings) do
             local created_casing = CreateObjectNoOffset(Config.ShellProp, v.position, false)
-            print(created_casing)
             FreezeEntityPosition(created_casing, true)
             exports['qb-target']:AddEntityZone("casing".. v.id, created_casing, {
                 name = "casing"..v.id,
