@@ -5,7 +5,7 @@ Fingerprints = {}
 Splatters = {}
 
 RegisterServerEvent("ze-evidence:RegisterNewCasing")
-AddEventHandler("ze-evidence:RegisterNewCasing", function(casingEntity, weapon, pos)
+AddEventHandler("ze-evidence:RegisterNewCasing", function(casingEntity, weapon, pos, isGloved)
     local src = source
     local Player = QBCore.Functions.GetPlayer(src)
     local weaponInfo = QBCore.Shared.Weapons[weapon]
@@ -13,7 +13,7 @@ AddEventHandler("ze-evidence:RegisterNewCasing", function(casingEntity, weapon, 
     if weaponInfo then
         local weaponItem = Player.Functions.GetItemByName(weaponInfo['name'])
         if weaponItem then
-            if weaponItem.info and weaponItem.info ~= '' then
+            if weaponItem.info and weaponItem.info ~= '' and not isGloved then
                 serieNumber = weaponItem.info.serie
                 Fingerprints[serieNumber] = Shared.ConvertCitizenIdToFingerprint(Player.PlayerData.citizenid)
             end
