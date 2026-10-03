@@ -1,6 +1,26 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 
 Citizen.CreateThread(function()
+    exports['qb-target']:AddGlobalPlayer({
+        options = {
+          {
+            icon = "fas fa-fingerprint",
+            label = "Take Fingerprint",
+            action = function(entity)
+              TriggerServerEvent("ze-evidence:GetFingerprintFromPlayer", GetPlayerServerId(entity))
+            end,
+            canInteract = function(entity)
+              return IsPedAPlayer(entity)
+            end,
+            job = { ["police"] = 0 },
+            item = "pdfingerprinttape"
+          }
+        },
+        distance = 2.5
+      })
+end)
+
+Citizen.CreateThread(function()
     while true do
         Citizen.Wait(0)
         if IsPedShooting(PlayerPedId()) then

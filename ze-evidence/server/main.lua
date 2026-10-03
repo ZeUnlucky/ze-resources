@@ -30,6 +30,23 @@ AddEventHandler("ze-evidence:RegisterNewCasing", function(casingEntity, weapon, 
     TriggerClientEvent("ze-evidence:RegisterNewCasingClient", -1,  casingEntity, serieNumber)
 end)
 
+RegisterServerEvent("ze-evidence:GetFingerprintFromPlayer", function(pID)
+    local Player = QBCore.Functions.GetPlayer(source)
+    local target = QBCore.Functions.GetPlayer(pID)
+    if target ~= nil then
+        if Player.Functions.HasItem("pdfingerprinttape", 1) then
+            local fingerprint = Shared.ConvertCitizenIdToFingerprint(Player.PlayerData.citizenid)
+            Player.Functions.RemoveItem("pdfingerprinttape", 1)
+            TriggerClientEvent('inventory:client:ItemBox', source, QBCore.Shared.Items["pdfingerprinttape"], 'remove')
+            local info = {}
+            if fingerprint then info.fingerprint = fingerprint end
+            exports['qb-inventory']:AddItem(source, "usedfingerprinttape", 1, false, info, 'ze-evidence:useTape')
+        else
+            QBCore.Functions.Notify(source, "You need fingerprint tape!", "error", 5000)
+        end
+    end
+end)
+
 QBCore.Commands.Add("checkfinger", "Checks held gun for a fingerprint", {}, false, function(source)
     local weapon = GetSelectedPedWeapon(GetPlayerPed(source))
     local weaponInfo = QBCore.Shared.Weapons[weapon]
@@ -43,7 +60,6 @@ QBCore.Commands.Add("checkfinger", "Checks held gun for a fingerprint", {}, fals
                     Player.Functions.RemoveItem("pdfingerprinttape", 1)
                     TriggerClientEvent('inventory:client:ItemBox', source, QBCore.Shared.Items["pdfingerprinttape"], 'remove')
                     local info = {}
-                    print(Shared.DumpTable(Shared.GetUniqueValuesFromTable(fingerprint)))
                     if fingerprint then info.fingerprint = Shared.GetUniqueValuesFromTable(fingerprint) end
                     exports['qb-inventory']:AddItem(source, "usedfingerprinttape", 1, false, info, 'ze-evidence:useTape')
                 else
@@ -52,7 +68,6 @@ QBCore.Commands.Add("checkfinger", "Checks held gun for a fingerprint", {}, fals
             end
         end
     end
-    
 end)
 
 QBCore.Commands.Add("wipefinger", "Wipes fingerprint from held gun", {}, false, function(source)
