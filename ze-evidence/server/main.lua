@@ -63,7 +63,7 @@ QBCore.Commands.Add("checkfinger", "Checks held gun for a fingerprint", {}, fals
     if weaponInfo then
         local weaponItem = Player.Functions.GetItemByName(weaponInfo['name'])
         if weaponItem then
-            local prints = type(weaponItem.info) == 'table' and weaponItem.info.hiddenPrints
+            local prints = weaponItem.info and weaponItem.info.hiddenPrints
             if prints and #prints > 0 then
                 if Player.Functions.HasItem("pdfingerprinttape", 1) then
                     Player.Functions.RemoveItem("pdfingerprinttape", 1)
