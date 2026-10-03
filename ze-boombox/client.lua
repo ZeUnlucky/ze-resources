@@ -6,9 +6,7 @@ boombox = {
     ["model"] = "prop_boombox_01", ["bone"] = 28422, ["x"] = 0.2,["y"] = 0.0,["z"] = 0.0,["xR"] = -35.0,["yR"] = -100.0, ["zR"] = 0.0
 }}
 
-
-RegisterNetEvent('ze-boombox:placeBoombox')
-AddEventHandler('ze-boombox:placeBoombox', function()
+RegisterNetEvent('ze-boombox:placeBoombox', function()
     local ped = PlayerPedId()
     ClearPedTasks(ped)
     local pos = GetEntityCoords(ped)
@@ -16,7 +14,7 @@ AddEventHandler('ze-boombox:placeBoombox', function()
     for _,v in ipairs(Config.NoMusicZones) do
         if GetDistanceBetweenCoords(pos, v, false) <= Config.NoMusicRadius then
             shouldPlace = false
-            QBCore.Functions.Notify("Cant place here!", "error")
+            QBCore.Functions.Notify("Can't place here!", "error")
             TriggerServerEvent('ze-boombox:refundBoombox', 42)
             break
         end
@@ -26,8 +24,7 @@ AddEventHandler('ze-boombox:placeBoombox', function()
         PlaceObjectOnGroundProperly(obj)
         FreezeEntityPosition(obj, true)
         SetEntityHeading(obj, GetEntityHeading(ped))
-        print(obj)
-        TriggerServerEvent("ze-boombox:updateIndexes", obj, pos)
+        TriggerServerEvent("ze-boombox:updateIndexes", NetworkGetNetworkIdFromEntity(obj), pos)
         QBCore.Functions.Notify("Placed a boombox!", "success")
     end
 end)
@@ -35,11 +32,11 @@ end)
 RegisterNetEvent('ze-boombox:playSong')
 AddEventHandler('ze-boombox:playSong', function(name)
     if not name then return end
-    xSound:setSoundDynamic(name, true)
-	xSound:setVolumeMax(name, 0.3)
-    xSound:destroyOnFinish(name, false)
+    exports['xsound']:setSoundDynamic(name, true)
+	exports['xsound']:setVolumeMax(name, 0.3)
+    exports['xsound']:destroyOnFinish(name, false)
     boomboxended[name] = false
-    xSound:onPlayEnd(name, function()
+    exports['xsound']:onPlayEnd(name, function()
         boomboxended[name] = true
     end)
 end)
@@ -61,19 +58,29 @@ local function findByObject(obj) -- UC
    return findByPos(pos)
 end
 
-RegisterNetEvent("ze-boombox:UpdateBoomboxes", function(booms)
+RegisterNetEvent("ze-boombox:UpdateBoomboxes", function(booms, firstSpawn)
     boomboxes = booms
+    if firstSpawn and boomboxes then
+        for k, bb in pairs(boomboxes) do
+            local obj = CreateObject('prop_boombox_01', bb.Position, false)
+            PlaceObjectOnGroundProperly(obj)
+            FreezeEntityPosition(obj, true)
+            if bb.isPlaying then
+                TriggerServerEvent('ze-boombox:playSong', bb.PlayingNow, bb)
+            end
+        end
+    end
 end)
 
 RegisterNetEvent("ze-boombox:setVolume", function(obj, vol)
     if obj.Playing then
-        xSound:setVolumeMax(obj.ID, vol)
+        exports['xsound']:setVolumeMax(obj.ID, vol)
     end
 end)
 
 RegisterNetEvent("ze-boombox:setPosition", function(obj, pos)
     if not boomboxended[obj.ID] and obj.Playing then
-        xSound:Position(obj.ID, pos)
+        exports['xsound']:Position(obj.ID, pos)
     end
 end)
 
@@ -206,6 +213,12 @@ exports['qb-target']:AddTargetModel("prop_boombox_01", {
                             else
                                 shouldBlockPlayWhileMoving = false
                                 local limitnet = 0
+                                Citizen.CreateThread(function()
+                                    while carried do
+                                        Citizen.Wait(500)
+                                        TriggerServerEvent("ze-boombox:changePositionCarrying", bb, GetEntityCoords(PlayerPedId()))
+                                    end
+                                end)
                                 while carried do
                                     Citizen.Wait(1)
                                     limitnet = limitnet + 1
@@ -216,6 +229,7 @@ exports['qb-target']:AddTargetModel("prop_boombox_01", {
                                     end
                                     local forceDrop = false
                                     local pos = GetEntityCoords(PlayerPedId())
+
                                     for _,v in ipairs(Config.NoMusicZones) do
                                         if GetDistanceBetweenCoords(pos, v, false) <= Config.NoMusicRadius then
                                             forceDrop = true
@@ -238,7 +252,7 @@ exports['qb-target']:AddTargetModel("prop_boombox_01", {
                                                 DeleteEntity(attachedPropPerm)
                                             end
                                             SetEntityHeading(obj, GetEntityHeading(PlayerPedId()))
-                                            TriggerServerEvent("ze-boombox:changePosition", bb, pos, obj)
+                                            TriggerServerEvent("ze-boombox:changePosition", bb, pos, NetworkGetNetworkIdFromEntity(obj))
                                             QBCore.Functions.Notify('You\'ve set the boombox down!', 'success', 5000)
                                         end
                                     else
@@ -274,7 +288,7 @@ exports['qb-target']:AddTargetModel("prop_boombox_01", {
                                             DeleteEntity(attachedPropPerm)
                                         end
                                         SetEntityHeading(obj, GetEntityHeading(PlayerPedId()))
-                                        TriggerServerEvent("ze-boombox:changePosition", bb, pos, obj)
+                                        TriggerServerEvent("ze-boombox:changePosition", bb, pos, NetworkGetNetworkIdFromEntity(obj))
                                         QBCore.Functions.Notify('You\'ve set the boombox down!', 'success', 5000)
                                     end
                                 end

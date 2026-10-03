@@ -1,7 +1,7 @@
 Config = {}
 Config.NoMusicRadius = 50.0
 Config.BoomboxButtonLabel = '[E]'
-Config.BoomboxButtonControlKey = 38 -- Google Fivem Controls
+Config.BoomboxButtonControlKey = 38 -- Google Fivem Controls E
 Config.NoMusicZones = {
     [1] = vector3(425.130, -979.558, 30.711),
     [2] = vector3(825.3849, -1290.027, 28.23405),
@@ -14,3 +14,4 @@ Config.NoMusicZones = {
 }
 Config.MaxPlayersForMusicWhileTransfer = 29
 Config.NetEventsLimitInMiliseconds = 2
+Config.BoomboxDistance = 30.0

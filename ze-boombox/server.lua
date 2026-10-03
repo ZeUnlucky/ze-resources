@@ -1,12 +1,14 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 local boomboxes
+
 local function ChangePlaying(obj, isPlaying)
     boomboxes[obj.ID .. ""].Playing = isPlaying
     TriggerClientEvent("ze-boombox:UpdateBoomboxes", -1, boomboxes)
 end
+
 local function StopSong(bb)
     ChangePlaying(bb, false)
-    xSound:Destroy(-1, bb.ID)
+    exports['xsound']:Destroy(-1, bb.ID)
 end
 
 local function tablelength(T)
@@ -61,8 +63,8 @@ AddEventHandler('ze-boombox:pickupBoombox', function(bb)
 	local xPlayer = QBCore.Functions.GetPlayer(src)
 	if not xPlayer then return end
 	if bb and bb.ID then
-		exports['qs-inventory']:AddItem(src, "boombox", 1)
-		xSound:Destroy(-1, bb.ID)
+		exports['qb-inventory']:AddItem(src, "boombox", 1)
+		exports['xsound']:Destroy(-1, bb.ID)
 		ChangePlaying(bb, false)
 		DeleteBoombox(bb)
 	end
@@ -75,7 +77,7 @@ AddEventHandler('ze-boombox:refundBoombox', function(s)
 	local xPlayer = QBCore.Functions.GetPlayer(src)
 	if not xPlayer then return end
 	if xPlayer ~= nil then
-		exports['qs-inventory']:AddItem(src, "boombox", 1)
+		exports['qb-inventory']:AddItem(src, "boombox", 1)
 	end
 end)
 
@@ -83,17 +85,13 @@ RegisterServerEvent('ze-boombox:playSong')
 AddEventHandler('ze-boombox:playSong', function(id, bb)
 	if id ~= nil and bb ~= nil then
 		local name = bb.ID
-		local src = source
-		exports['BiGamer']:createLog({
-			EmbedMessage = GetPlayerName(src).. " ("..name..") Played in "..bb.Position.." the song "..id,
-			player_id = src,
-			channel = "boombox",
-			screenshot = false
-		})
+		local src = source		
 		ChangePlaying(bb, true)
-		xSound:PlayUrlPos(-1, name, id, 30, bb.Position, false)
-		xSound:Distance(-1, name, B.boomboxSoundDistance)
+		exports['xsound']:PlayUrlPos(-1, name, id, 30, bb.Position, false)
+		exports['xsound']:Distance(-1, name, Config.BoomboxDistance)
+        boomboxes['' .. name].PlayingNow = ID
 		TriggerClientEvent("ze-boombox:playSong", -1, name)
+        TriggerClientEvent("ze-boombox:UpdateBoomboxes", -1, boomboxes)
 	end
 end)
 
@@ -128,11 +126,22 @@ RegisterServerEvent("ze-boombox:changePosition", function(obj, pos, ent)
     end
 end)
 
+RegisterServerEvent("ze-boombox:changePositionCarrying", function(obj, pos)
+    if obj ~= nil and pos ~= nil then
+        TriggerClientEvent("ze-boombox:setPosition", -1, obj, pos)
+    end
+end)
+
+AddEventHandler('QBCore:Server:PlayerLoaded', function(Player)
+    TriggerClientEvent("ze-boombox:UpdateBoomboxes", Player.PlayerData.source, boomboxes, true)
+end)
+
+
 QBCore.Functions.CreateUseableItem('boombox', function(source, item)
 	local src = source
 	local xPlayer = QBCore.Functions.GetPlayer(src)
 	if not xPlayer then return end
-	if exports['qs-inventory']:RemoveItem(src, item.name, 1, item.slot) then
+	if exports['qb-inventory']:RemoveItem(src, item.name, 1, item.slot) then
 		TriggerClientEvent('ze-boombox:placeBoombox', src)
 	end
 end)
