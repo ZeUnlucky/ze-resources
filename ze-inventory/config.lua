@@ -51,7 +51,7 @@ Config.VendingItems = {
 
 -- Sent to the UI on open. Everything is optional; see UI.md for what each does.
 Config.UI = {
-    accent = nil,                  -- e.g. '#5eead4'. nil keeps the UI's default accent colour
+    accent = nil,                  -- e.g. '#ff7a1a'. nil keeps the UI's default accent colour
     currency = '$',
     closeKeys = { 'Escape', 'Tab' },
     hotbarMs = 3500,               -- how long the quick-slot bar stays up after using a slot

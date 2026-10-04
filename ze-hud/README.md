@@ -1,7 +1,7 @@
 # ze-hud
 
 A full replacement for `qb-hud`: new NUI (vanilla HTML/CSS/JS, no CDNs, no Vue/Quasar/Font Awesome), the same
-events and commands, same look as `ze-inventory` (dark glass panels, teal accent).
+events and commands, same look as `ze-inventory` (the "Ember" theme: warm charcoal glass panels, orange-to-amber accent gradient).
 
 > **Status: never run in-game.** The Lua passed a block/bracket balance check and was read through by hand, and
 > the UI was exercised in a browser with simulated data (`dev/preview.html`). The first run in the game is the
@@ -48,7 +48,7 @@ Nothing else on this server references the `qb-hud` resource name; only `qb-admi
 ## Config (`config.lua`)
 
 * `Config.UseMPH`, `Config.SpeedMax`: unit and the speed that fills the arc.
-* `Config.Accent`: UI accent colour (`#5eead4` matches `ze-inventory`).
+* `Config.Accent`: UI accent colour (`#ff7a1a` matches `ze-inventory`). The gradient partner colour is derived from it.
 * `Config.Currency`: locale and currency code for the money display.
 * `Config.FuelResource`: any resource exporting `GetFuel(vehicle)` (`qb-fuel` provides `LegacyFuel`). If it errors, the fuel bar simply hides.
 * `Config.VoiceRanges`: pma-voice ranges, shortest first.

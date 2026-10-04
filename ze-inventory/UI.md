@@ -66,7 +66,7 @@ config = {
     hotbarSlots = 5,                 -- player slots 1..N are the quick slots
     hotbarMs    = 3500,
     closeKeys   = { 'Escape', 'Tab' },
-    accent      = '#5eead4',         -- one colour re-themes the whole UI
+    accent      = '#ff7a1a',         -- one colour re-themes the whole UI (the gradient partner is derived from it)
 }
 ```
 

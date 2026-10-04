@@ -160,7 +160,31 @@
         const root = document.documentElement.style;
         root.setProperty('--accent', `#${h}`);
         root.setProperty('--accent-rgb', `${r}, ${g}, ${b}`);
-        root.setProperty('--accent-ink', luma > 0.6 ? '#05080c' : '#ffffff');
+        root.setProperty('--accent-2', gradientPartner(r, g, b));
+        root.setProperty('--accent-ink', luma > 0.45 ? '#1a0c02' : '#ffffff');
+    }
+
+    // The accent gradient ends on the same colour with the hue rotated 30 degrees and a touch lighter.
+    function gradientPartner(r, g, b) {
+        const rn = r / 255, gn = g / 255, bn = b / 255;
+        const max = Math.max(rn, gn, bn), min = Math.min(rn, gn, bn);
+        const lig = (max + min) / 2;
+        const d = max - min;
+        let hue = 0, sat = 0;
+        if (d) {
+            sat = lig > 0.5 ? d / (2 - max - min) : d / (max + min);
+            if (max === rn) hue = (gn - bn) / d + (gn < bn ? 6 : 0);
+            else if (max === gn) hue = (bn - rn) / d + 2;
+            else hue = (rn - gn) / d + 4;
+            hue *= 60;
+        }
+        hue = (hue + 30) % 360;
+        const l2 = Math.min(0.78, lig + 0.04);
+        const c = (1 - Math.abs(2 * l2 - 1)) * sat;
+        const x = c * (1 - Math.abs(((hue / 60) % 2) - 1));
+        const m = l2 - c / 2;
+        const rgb = hue < 60 ? [c, x, 0] : hue < 120 ? [x, c, 0] : hue < 180 ? [0, c, x] : hue < 240 ? [0, x, c] : hue < 300 ? [x, 0, c] : [c, 0, x];
+        return `#${rgb.map((v) => Math.round((v + m) * 255).toString(16).padStart(2, '0')).join('')}`;
     }
 
     // ---------- Data normalisation ----------

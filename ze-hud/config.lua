@@ -4,7 +4,7 @@ Config = {}
 
 Config.OpenMenu = 'I'             -- default key for the settings menu (players can rebind it in FiveM settings)
 Config.UseMPH = true              -- true = MPH and feet, false = KPH and metres
-Config.Accent = '#5eead4'         -- UI accent colour (matches ze-inventory)
+Config.Accent = '#ff7a1a'         -- UI accent colour (matches ze-inventory; the gradient partner is derived from it)
 Config.Currency = { locale = 'en-US', code = 'USD' } -- used to format the money display (Intl.NumberFormat)
 
 Config.SpeedMax = { mph = 180, kph = 300 } -- speed that fills the gauge completely

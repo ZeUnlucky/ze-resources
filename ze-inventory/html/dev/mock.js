@@ -136,7 +136,7 @@
     // Flip this on (press X) to see a rejected action roll back with an error toast.
     let rejectNext = false;
     window.mockNui = (name, data) => {
-        console.log(`%c[NUI → Lua] ${name}`, 'color:#5eead4;font-weight:600', data);
+        console.log(`%c[NUI → Lua] ${name}`, 'color:#ff7a1a;font-weight:600', data);
         if (name === 'close') return true;
         if (rejectNext && name !== 'ready') return { ok: false, message: 'Server said no (mock)' };
         return true;
@@ -160,8 +160,8 @@
             padding: 6px 9px; border: 1px solid rgba(255,255,255,.16); border-radius: 8px;
             background: rgba(0,0,0,.3); color: #fff; font: inherit; cursor: pointer;
         }
-        .devbar button:hover { border-color: #5eead4; color: #5eead4; }
-        .devbar button.on { border-color: #fb7185; color: #fb7185; }
+        .devbar button:hover { border-color: #ff7a1a; color: #ff7a1a; }
+        .devbar button.on { border-color: #ff5d7a; color: #ff5d7a; }
     `;
     document.head.appendChild(style);
     document.body.classList.add('dev');
