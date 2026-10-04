@@ -3,36 +3,41 @@ local QBCore = exports['qb-core']:GetCoreObject()
 Casings = {}
 Splatters = {}
 
+local function GetGunPrints(serial)
+    local raw = GetResourceKvpString("ze-evidence:prints:" .. serial)
+    return raw and json.decode(raw) or {}
+end
+
+local function SaveGunPrints(serial, prints)
+    if #prints == 0 then
+        DeleteResourceKvp("ze-evidence:prints:" .. serial)
+    else
+        SetResourceKvp("ze-evidence:prints:" .. serial, json.encode(prints))
+    end
+end
+
+local function AddGunPrint(serial, fingerprint)
+    local prints = GetGunPrints(serial)
+    for _, existing in ipairs(prints) do
+        if existing == fingerprint then return end
+    end
+    table.insert(prints, fingerprint)
+    SaveGunPrints(serial, prints)
+end
+
 RegisterServerEvent("ze-evidence:RegisterNewCasing")
 AddEventHandler("ze-evidence:RegisterNewCasing", function(casingEntity, weapon, pos, isGloved)
     local src = source
     local Player = QBCore.Functions.GetPlayer(src)
     local weaponInfo = QBCore.Shared.Weapons[weapon]
     local serieNumber = nil
-    print(('[ze-evidence:debug] shot: weapon=%s weaponInfo=%s isGloved=%s'):format(tostring(weapon), tostring(weaponInfo ~= nil), tostring(isGloved)))
     if weaponInfo then
         local weaponItem = Player.Functions.GetItemByName(weaponInfo['name'])
-        print('[ze-evidence:debug] shot: weaponItem=' .. tostring(weaponItem ~= nil) .. ' info=' .. json.encode(weaponItem and weaponItem.info))
         if weaponItem then
             if type(weaponItem.info) == 'table' then
                 serieNumber = weaponItem.info.serie
-                if not isGloved then
-                    local fingerprint = Shared.ConvertCitizenIdToFingerprint(Player.PlayerData.citizenid)
-                    local prints = weaponItem.info.hiddenPrints or {}
-                    local alreadyPrinted = false
-                    for _, existing in ipairs(prints) do
-                        if existing == fingerprint then
-                            alreadyPrinted = true
-                            break
-                        end
-                    end
-                    if not alreadyPrinted then
-                        table.insert(prints, fingerprint)
-                        local newInfo = weaponItem.info
-                        newInfo.hiddenPrints = prints
-                        local saved = exports['qb-inventory']:SetItemData(src, weaponInfo['name'], 'info', newInfo)
-                        print('[ze-evidence:debug] shot: SetItemData saved=' .. tostring(saved))
-                    end
+                if serieNumber and not isGloved then
+                    AddGunPrint(serieNumber, Shared.ConvertCitizenIdToFingerprint(Player.PlayerData.citizenid))
                 end
             end
         end
@@ -66,15 +71,15 @@ QBCore.Commands.Add("checkfinger", "Checks held gun for a fingerprint", {}, fals
     local Player = QBCore.Functions.GetPlayer(source)
     if weaponInfo then
         local weaponItem = Player.Functions.GetItemByName(weaponInfo['name'])
-        print('[ze-evidence:debug] checkfinger: weapon=' .. tostring(weapon) .. ' weaponItem=' .. tostring(weaponItem ~= nil) .. ' info=' .. json.encode(weaponItem and weaponItem.info))
         if weaponItem then
-            local prints = weaponItem.info and weaponItem.info.hiddenPrints
-            if prints and #prints > 0 then
+            local serial = type(weaponItem.info) == 'table' and weaponItem.info.serie
+            local prints = serial and GetGunPrints(serial) or {}
+            if #prints > 0 then
                 if Player.Functions.HasItem("pdfingerprinttape", 1) then
                     Player.Functions.RemoveItem("pdfingerprinttape", 1)
                     TriggerClientEvent('inventory:client:ItemBox', source, QBCore.Shared.Items["pdfingerprinttape"], 'remove')
                     local info = {}
-                    info.fingerprint = Shared.GetUniqueValuesFromTable(prints)
+                    info.fingerprint = prints
                     exports['qb-inventory']:AddItem(source, "usedfingerprinttape", 1, false, info, 'ze-evidence:useTape')
                 else
                     QBCore.Functions.Notify(source, "You need fingerprint tape!", "error", 5000)
@@ -92,10 +97,9 @@ QBCore.Commands.Add("wipefinger", "Wipes fingerprint from held gun", {}, false, 
     local Player = QBCore.Functions.GetPlayer(source)
     if weaponInfo then
         local weaponItem = Player.Functions.GetItemByName(weaponInfo['name'])
-        if weaponItem and type(weaponItem.info) == 'table' and weaponItem.info.hiddenPrints then
-            local newInfo = weaponItem.info
-            newInfo.hiddenPrints = nil
-            exports['qb-inventory']:SetItemData(source, weaponInfo['name'], 'info', newInfo)
+        local serial = weaponItem and type(weaponItem.info) == 'table' and weaponItem.info.serie
+        if serial and #GetGunPrints(serial) > 0 then
+            SaveGunPrints(serial, {})
             QBCore.Functions.Notify(source, "Cleaned fingerprint from gun", "success", 5000)
         end
     end
