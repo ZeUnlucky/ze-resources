@@ -28,10 +28,10 @@ AddEventHandler("ze-evidence:RegisterNewCasing", function(casingEntity, weapon, 
                     end
                     if not alreadyPrinted then
                         table.insert(prints, fingerprint)
-                        weaponItem.info.hiddenPrints = prints
-                        print('[ze-evidence:debug] shot: added print, calling SetInventory (exists=' .. tostring(Player.Functions.SetInventory ~= nil) .. ')')
-                        Player.Functions.SetInventory(Player.PlayerData.items)
-                        print('[ze-evidence:debug] shot: SetInventory done')
+                        local newInfo = weaponItem.info
+                        newInfo.hiddenPrints = prints
+                        local saved = exports['qb-inventory']:SetItemData(src, weaponInfo['name'], 'info', newInfo)
+                        print('[ze-evidence:debug] shot: SetItemData saved=' .. tostring(saved))
                     end
                 end
             end
@@ -93,8 +93,9 @@ QBCore.Commands.Add("wipefinger", "Wipes fingerprint from held gun", {}, false, 
     if weaponInfo then
         local weaponItem = Player.Functions.GetItemByName(weaponInfo['name'])
         if weaponItem and type(weaponItem.info) == 'table' and weaponItem.info.hiddenPrints then
-            weaponItem.info.hiddenPrints = nil
-            Player.Functions.SetInventory(Player.PlayerData.items)
+            local newInfo = weaponItem.info
+            newInfo.hiddenPrints = nil
+            exports['qb-inventory']:SetItemData(source, weaponInfo['name'], 'info', newInfo)
             QBCore.Functions.Notify(source, "Cleaned fingerprint from gun", "success", 5000)
         end
     end
