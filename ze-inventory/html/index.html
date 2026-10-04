@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ze-inventory</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Icon sprite: stroke icons, styled by .icon in style.css -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+        <defs>
+            <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></symbol>
+            <symbol id="i-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8M18.5 14.4c1.9.8 3 2.6 3 5.6"/></symbol>
+            <symbol id="i-box" viewBox="0 0 24 24"><path d="M3 8l9-5 9 5v8l-9 5-9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></symbol>
+            <symbol id="i-car" viewBox="0 0 24 24"><path d="M5 16l1.5-5.5A2 2 0 0 1 8.4 9h7.2a2 2 0 0 1 1.9 1.5L19 16"/><rect x="3" y="16" width="18" height="4" rx="1.5"/><path d="M7 18h.01M17 18h.01"/></symbol>
+            <symbol id="i-glove" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="3"/><path d="M3 11h18M12 11v3"/></symbol>
+            <symbol id="i-ground" viewBox="0 0 24 24"><path d="M12 4v10M7.5 10 12 14.5 16.5 10"/><path d="M4 19h16"/></symbol>
+            <symbol id="i-shop" viewBox="0 0 24 24"><path d="M5 8h14l-1 12H6z"/><path d="M9 8V7a3 3 0 0 1 6 0v1"/></symbol>
+            <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m20 20-4.2-4.2"/></symbol>
+            <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+            <symbol id="i-bolt" viewBox="0 0 24 24"><path d="M13 3 5 13.5h6L10 21l9-11h-6z"/></symbol>
+            <symbol id="i-gift" viewBox="0 0 24 24"><rect x="3.5" y="9" width="17" height="11" rx="2"/><path d="M12 9v11M3.5 13.5h17"/><path d="M12 9C10.5 5 7 5 7 7.5 7 9 12 9 12 9zM12 9c1.5-4 5-4 5-1.5C17 9 12 9 12 9z"/></symbol>
+            <symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 8h14M14 4l4 4-4 4M20 16H6M10 12l-4 4 4 4"/></symbol>
+            <symbol id="i-coin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7v10M14.6 9.4C14.1 8.5 13.2 8 12 8c-1.5 0-2.6.7-2.6 1.9 0 2.6 5.2 1.3 5.2 4 0 1.2-1.1 2.1-2.6 2.1-1.3 0-2.3-.5-2.8-1.4"/></symbol>
+            <symbol id="i-bank" viewBox="0 0 24 24"><path d="M3 10 12 4l9 6M5.5 10v8M9.8 10v8M14.2 10v8M18.5 10v8M3 20h18"/></symbol>
+            <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M15 9V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v7a2 2 0 0 0 2 2h3"/></symbol>
+            <symbol id="i-cart"viewBox="0 0 24 24"><path d="M3 4h2.5l2 11h10l2-8H7"/><circle cx="9" cy="19" r="1.2"/><circle cx="17" cy="19" r="1.2"/></symbol>
+        </defs>
+    </svg>
+
+    <!-- Quick-slot HUD, shown briefly when the inventory is closed -->
+    <div id="hotbar" class="hotbar" hidden></div>
+    <!-- "+2 Bandage" style notices -->
+    <div id="itemboxes" class="itemboxes"></div>
+    <!-- "You need these items" card -->
+    <div id="required" class="required" hidden></div>
+
+    <main id="app" class="app" hidden>
+        <button id="btn-close" class="app-close" type="button" aria-label="Close inventory">
+            <svg class="icon"><use href="#i-close"/></svg>
+        </button>
+
+        <div class="stage">
+            <section id="panel-player" class="panel" data-side="player"></section>
+
+            <aside class="rail">
+                <div class="card">
+                    <div class="card-label">
+                        <span>Amount</span>
+                        <span class="card-hint">empty = whole stack</span>
+                    </div>
+                    <div class="stepper">
+                        <button type="button" data-step="-1" aria-label="Decrease amount">&minus;</button>
+                        <input id="amount" type="text" inputmode="numeric" maxlength="4" placeholder="All" autocomplete="off" spellcheck="false">
+                        <button type="button" data-step="1" aria-label="Increase amount">+</button>
+                    </div>
+                    <div class="chips" id="chips">
+                        <button type="button" data-amt="1">1</button>
+                        <button type="button" data-amt="5">5</button>
+                        <button type="button" data-amt="10">10</button>
+                        <button type="button" data-amt="0">All</button>
+                    </div>
+                </div>
+
+                <div class="zones">
+                    <div class="zone" data-zone="use">
+                        <svg class="icon"><use href="#i-bolt"/></svg>
+                        <b>Use</b><span>Drop item here</span>
+                    </div>
+                    <div class="zone" data-zone="give">
+                        <svg class="icon"><use href="#i-gift"/></svg>
+                        <b>Give</b><span>To nearest person</span>
+                    </div>
+                    <div class="zone" data-zone="drop">
+                        <svg class="icon"><use href="#i-ground"/></svg>
+                        <b>Drop</b><span>On the ground</span>
+                    </div>
+                </div>
+
+                <ul class="keys">
+                    <li><span><kbd>Shift</kbd><kbd>Click</kbd></span>Quick move</li>
+                    <li><span><kbd>Right</kbd><kbd>Click</kbd></span>Options</li>
+                    <li><span><kbd>Double</kbd><kbd>Click</kbd></span>Use</li>
+                    <li><span><kbd>1</kbd>&ndash;<kbd>5</kbd></span>Bind to slot</li>
+                </ul>
+            </aside>
+
+            <section id="panel-other" class="panel" data-side="other" hidden></section>
+        </div>
+    </main>
+
+    <template id="tpl-panel">
+        <header class="panel-head">
+            <div class="panel-icon"><svg class="icon"><use data-ref="icon" href="#i-user"/></svg></div>
+            <div class="panel-titles">
+                <h2 class="panel-title" data-ref="title"></h2>
+                <p class="panel-sub" data-ref="sub"></p>
+            </div>
+            <div class="panel-extra" data-ref="extra"></div>
+        </header>
+
+        <div class="panel-meter">
+            <div class="meter" data-ref="meter"><i data-ref="meterFill"></i></div>
+            <div class="meter-text">
+                <span data-ref="weight"></span>
+                <span data-ref="count"></span>
+            </div>
+        </div>
+
+        <label class="search">
+            <svg class="icon"><use href="#i-search"/></svg>
+            <input data-ref="search" type="text" placeholder="Search items" autocomplete="off" spellcheck="false">
+        </label>
+
+        <div class="grid-wrap" data-ref="gridWrap">
+            <div class="grid" data-ref="grid"></div>
+        </div>
+    </template>
+
+    <div id="tip" class="tip" hidden></div>
+    <ul id="ctx" class="ctx" hidden></ul>
+    <div id="toast" class="toast" hidden></div>
+
+    <script src="script.js"></script>
+</body>
+</html>
