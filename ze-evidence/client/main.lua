@@ -19,41 +19,6 @@ Citizen.CreateThread(function()
         distance = 2.5
       })
 
-      for i, pos in ipairs(Config.LabLocations) do
-        exports['qb-target']:AddCircleZone("forensicsLab"..i, pos, 3, {
-            name = "forensicsLab"..i,
-            debugPoly = false,
-            useZ = true
-          }, {
-            options = {
-              {
-
-                event = "police:openArmory",
-                icon = "fas fa-archive",
-                label = "Open Armory",
-                targeticon = "fas fa-gun",
-                item = "police_badge",
-                action = function(entity)
-                  if IsPedAPlayer(entity) then return false end
-                  TriggerEvent("police:openArmoryMenu", entity)
-                end,
-                canInteract = function(entity, distance, data)
-                  return not IsPedAPlayer(entity)
-                end,
-                job = { ["police"] = 0, ["sheriff"] = 1 },
-                gang = { ["thelostmc"] = 2 },
-                citizenid = { ["JFD98238"] = true, ["HJS29340"] = true },
-                drawDistance = 10.0,
-                drawColor = {255, 255, 255, 255},
-                successDrawColor = {0, 255, 0, 255}
-              }
-            },
-            distance = 2.5
-          })
-      end
-end)
-
-Citizen.CreateThread(function()
     while true do
         Citizen.Wait(0)
         if IsPedShooting(PlayerPedId()) then
@@ -80,6 +45,7 @@ Citizen.CreateThread(function()
         end
     end
 end)
+
 
 AddEventHandler("entityDamaged", function (victim, culprit, weapon, dmg)
     if IsEntityAPed(victim) and culprit ~= nil and weapon ~= nil and PlayerPedId() == victim then

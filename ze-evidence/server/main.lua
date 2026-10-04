@@ -2,7 +2,6 @@ local QBCore = exports['qb-core']:GetCoreObject()
 
 Casings = {}
 Splatters = {}
-
 RegisterServerEvent("ze-evidence:RegisterNewCasing")
 AddEventHandler("ze-evidence:RegisterNewCasing", function(casingEntity, weapon, pos, isGloved)
     local src = source
