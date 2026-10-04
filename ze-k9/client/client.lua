@@ -215,7 +215,7 @@ function SniffCar(veh)
     end)
 end
 
-RegisterNetEvent("ze-k9:OpenMenu", function()
+local function OpenK9Menu()
     local options =  {
         { 
             header = "K9 Menu", 
@@ -251,6 +251,16 @@ RegisterNetEvent("ze-k9:OpenMenu", function()
     end
        
     exports['qb-menu']:openMenu(options, false, false)
+end
+
+RegisterNetEvent("ze-k9:OpenMenu", function()
+    OpenK9Menu()
+end)
+
+RegisterCommand("openK9", function()
+    if QBCore.Functions.GetPlayerData().job.type == "leo" then
+        OpenK9Menu()
+    end
 end)
 
 CommandToAction = {
@@ -259,3 +269,7 @@ CommandToAction = {
     ["SniffCar"] = SniffCar,
     ["SniffArea"] = SniffArea
 }
+
+
+
+RegisterKeyMapping('openK9', 'Open the K9 menu', 'keyboard', 'G')
