@@ -41,75 +41,13 @@ function AddTargets()
         }, {
             options = {
                 {
-                    icon = "fas fa-gun",
-                    label = "Submit Casings",
-                    targeticon = "fas fa-gun",
-                    item = "casing",
+                    icon = "fas fa-microscope",
+                    label = "Use Forensic Lab",
+                    targeticon = "fas fa-microscope",
                     action = function(entity)
-                        TriggerServerEvent("ze-evidence:SubmitCasing", SubmitCasing())
+                        OpenForensicLab()
                     end,
-                    job = { ["police"] = 0, ["sheriff"] = 0 }, 
-                    drawDistance = 10.0,
-                    drawColor = {255, 255, 255, 255},
-                    successDrawColor = {0, 255, 0, 255}
-                },
-                {
-                    icon = "fas fa-droplet",
-                    label = "Submit DNA",
-                    targeticon = "fas fa-droplet",
-                    item = "blood_vial",
-                    action = function(entity)
-                        TriggerServerEvent("ze-evidence:SubmitDNA", SubmitDNA())
-                    end,
-                    job = { ["police"] = 0, ["sheriff"] = 0 }, 
-                    drawDistance = 10.0,
-                    drawColor = {255, 255, 255, 255},
-                    successDrawColor = {0, 255, 0, 255}
-                },
-                {
-                    icon = "fas fa-gun",
-                    label = "Get Casing by ID",
-                    targeticon = "fas fa-gun",
-                    action = function(entity)
-                        TriggerServerEvent("ze-evidence:server:GetCasingByID", GetCasingID())
-                    end,
-                    job = { ["police"] = 0, ["sheriff"] = 0 }, 
-                    drawDistance = 10.0,
-                    drawColor = {255, 255, 255, 255},
-                    successDrawColor = {0, 255, 0, 255}
-                },
-                {
-                    icon = "fas fa-gun",
-                    label = "Get Casings by Serial",
-                    targeticon = "fas fa-gun",
-                    action = function(entity)
-                        TriggerServerEvent("ze-evidence:server:GetCasingsBySerial", GetCasingSerial())
-                    end,
-                    job = { ["police"] = 0, ["sheriff"] = 0 }, 
-                    drawDistance = 10.0,
-                    drawColor = {255, 255, 255, 255},
-                    successDrawColor = {0, 255, 0, 255}
-                },
-                {
-                    icon = "fas fa-droplet",
-                    label = "Get DNA by ID",
-                    targeticon = "fas fa-droplet",
-                    action = function(entity)
-                        TriggerServerEvent("ze-evidence:server:GetDNAByID", GetDNAID())
-                    end,
-                    job = { ["police"] = 0, ["sheriff"] = 0 }, 
-                    drawDistance = 10.0,
-                    drawColor = {255, 255, 255, 255},
-                    successDrawColor = {0, 255, 0, 255}
-                },
-                {
-                    icon = "fas fa-droplet",
-                    label = "Get DNA by Serial",
-                    targeticon = "fas fa-droplet",
-                    action = function(entity)
-                        TriggerServerEvent("ze-evidence:server:GetDNABySerial", GetDNASerial())
-                    end,
-                    job = { ["police"] = 0, ["sheriff"] = 0 }, 
+                    job = Config.LabJobs,
                     drawDistance = 10.0,
                     drawColor = {255, 255, 255, 255},
                     successDrawColor = {0, 255, 0, 255}

@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Forensic Laboratory</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <defs>
+            <symbol id="i-microscope" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 18h8"/><path d="M3 22h18"/><path d="M14 22a7 7 0 1 0 0-14h-1"/><path d="M9 14h2"/>
+                <path d="M9 12a2 2 0 0 1-2-2V6h6v4a2 2 0 0 1-2 2Z"/><path d="M12 6V3a1 1 0 0 0-1-1H9a1 1 0 0 0-1 1v3"/>
+            </symbol>
+            <symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/>
+            </symbol>
+            <symbol id="i-casing" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9.5 3h5l1 4v13a1 1 0 0 1-1 1h-5a1 1 0 0 1-1-1V7z"/><path d="M8.5 7h7"/><path d="M8.5 18h7"/>
+            </symbol>
+            <symbol id="i-droplet" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C6 11.1 5 13 5 15a7 7 0 0 0 7 7z"/>
+            </symbol>
+            <symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+            </symbol>
+            <symbol id="i-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+            </symbol>
+            <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><path d="m9 11 3 3L22 4"/>
+            </symbol>
+            <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>
+            </symbol>
+        </defs>
+    </svg>
+
+    <div id="app" class="app" hidden>
+        <div class="lab" role="dialog" aria-modal="true" aria-labelledby="lab-title">
+            <header class="lab-header">
+                <div class="brand">
+                    <span class="brand-icon"><svg class="icon"><use href="#i-microscope"/></svg></span>
+                    <div>
+                        <h1 id="lab-title">Forensic Laboratory</h1>
+                        <p class="brand-sub" id="officer"></p>
+                    </div>
+                </div>
+                <button type="button" class="icon-btn" id="close" aria-label="Close laboratory" title="Close (Esc)">
+                    <svg class="icon"><use href="#i-close"/></svg>
+                </button>
+            </header>
+
+            <div class="lab-body">
+                <nav class="lab-nav" role="tablist" aria-label="Laboratory sections">
+                    <button type="button" role="tab" class="nav-btn" data-tab="submit">
+                        <svg class="icon"><use href="#i-upload"/></svg><span>Submit Evidence</span>
+                    </button>
+                    <button type="button" role="tab" class="nav-btn" data-tab="casing" data-tone="casing">
+                        <svg class="icon"><use href="#i-casing"/></svg><span>Casing Records</span>
+                    </button>
+                    <button type="button" role="tab" class="nav-btn" data-tab="dna" data-tone="dna">
+                        <svg class="icon"><use href="#i-droplet"/></svg><span>DNA Records</span>
+                    </button>
+                </nav>
+
+                <main class="lab-main">
+                    <section class="panel" id="panel-submit" role="tabpanel">
+                        <div class="panel-head">
+                            <h2>Submit Evidence</h2>
+                            <p class="muted">Log the evidence you are carrying with the lab. Everything of a type is submitted together under one label.</p>
+                        </div>
+                        <div class="cards" id="cards"></div>
+                    </section>
+                    <section class="panel" id="panel-casing" role="tabpanel" hidden></section>
+                    <section class="panel" id="panel-dna" role="tabpanel" hidden></section>
+                </main>
+            </div>
+
+            <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+        </div>
+    </div>
+
+    <template id="tpl-card">
+        <article class="card">
+            <div class="card-head">
+                <span class="tile"><svg class="icon"><use data-ref="icon"/></svg></span>
+                <div>
+                    <h3 data-ref="title"></h3>
+                    <p class="muted" data-ref="blurb"></p>
+                </div>
+            </div>
+            <div class="stat">
+                <span class="stat-num" data-ref="count">0</span>
+                <span class="stat-label">ready to submit</span>
+            </div>
+            <p class="note" data-ref="note" hidden></p>
+            <label class="field">
+                <span class="field-label">Submission label</span>
+                <input class="input" type="text" data-ref="label" autocomplete="off" spellcheck="false">
+            </label>
+            <button type="button" class="btn" data-ref="submit"></button>
+            <div class="result" data-ref="result" hidden></div>
+        </article>
+    </template>
+
+    <template id="tpl-lookup">
+        <div class="lookup">
+            <div class="panel-head">
+                <h2 data-ref="title"></h2>
+                <p class="muted" data-ref="blurb"></p>
+            </div>
+            <form class="search" data-ref="form" novalidate>
+                <div class="segmented" role="radiogroup" data-ref="modes"></div>
+                <input class="input grow" type="text" data-ref="query" autocomplete="off" spellcheck="false">
+                <button type="submit" class="btn" data-ref="go">
+                    <svg class="icon"><use href="#i-search"/></svg><span>Search</span>
+                </button>
+            </form>
+            <div class="results-head" data-ref="summary" hidden></div>
+            <ul class="records" data-ref="list"></ul>
+            <div class="empty" data-ref="empty">
+                <svg class="icon"><use data-ref="emptyIcon"/></svg>
+                <p data-ref="emptyText"></p>
+            </div>
+        </div>
+    </template>
+
+    <script src="script.js"></script>
+</body>
+</html>

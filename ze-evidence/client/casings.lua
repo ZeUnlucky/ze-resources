@@ -26,68 +26,6 @@ Citizen.CreateThread(function()
     end
 end)
 
-function OpenCasingResultMenu(data)
-    local options = {}
-    for i, v in ipairs(data) do
-        table.insert(options,  { 
-            header = "Casing #"..v.id..' ['..v.gunSerial..']', 
-            icon = "fas fa-gun", 
-            txt = v.submittedBy .. ": " .. v.label,
-            disabled = true,
-        })
-    end
-    exports['qb-menu']:openMenu(
-        options, true, false)
-end
-
-function SubmitCasing()
-    local dialog = exports['qb-input']:ShowInput({
-        header = "Submit Casing",
-        submitText = "Submit",
-        inputs = {
-            {
-                text = "Casing Label", 
-                name = "label", 
-                type = "text",
-                isRequired = true, 
-            }
-        }
-    })
-    return dialog["label"]
-end
-
-function GetCasingID()
-    local dialog = exports['qb-input']:ShowInput({
-        header = "Find Casing by ID",
-        submitText = "Fetch",
-        inputs = {
-            {
-                text = "Casing ID", 
-                name = "cid", 
-                type = "number",
-                isRequired = true, 
-            }
-        }
-    })
-    return dialog["cid"]
-end
-
-function GetCasingSerial()
-    local dialog = exports['qb-input']:ShowInput({
-        header = "Find Casing by Serial",
-        submitText = "Fetch",
-        inputs = {
-            {
-                text = "Casing Serial", 
-                name = "cserial", 
-                type = "text",
-                isRequired = true, 
-            }
-        }
-    })
-    return dialog["cserial"]
-end
-
 RegisterNetEvent("ze-evidence:RegisterNewCasingClient")
 AddEventHandler("ze-evidence:RegisterNewCasingClient", function(casingId, serial)
     exports['qb-target']:AddEntityZone("casing"..casingId, NetworkGetEntityFromNetworkId(casingId), {
@@ -114,13 +52,5 @@ end)
 RegisterNetEvent("ze-evidence:RemoveCasingMenu")
 AddEventHandler("ze-evidence:RemoveCasingMenu", function(casingId)
     exports['qb-target']:RemoveZone("casing".. casingId)
-end)
-
-RegisterNetEvent("ze-evidence:client:GetCasingByID", function(data)
-    OpenCasingResultMenu(data)
-end)
-
-RegisterNetEvent("ze-evidence:client:GetCasingsBySerial", function(data)
-    OpenCasingResultMenu(data)
 end)
 

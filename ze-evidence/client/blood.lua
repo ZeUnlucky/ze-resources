@@ -1,65 +1,3 @@
-function OpenDNAResultMenu(data)
-    local options = {}
-    for i, v in ipairs(data) do
-        table.insert(options,  { 
-            header = "Blood #"..v.id..' ['..v.dnaString..']', 
-            icon = "fas fa-droplet", 
-            txt = v.submittedBy .. ": " .. v.label,
-            disabled = true,
-        })
-    end
-    exports['qb-menu']:openMenu(
-        options, true, false)
-end
-
-function SubmitDNA()
-    local dialog = exports['qb-input']:ShowInput({
-        header = "Submit DNA",
-        submitText = "Submit",
-        inputs = {
-            {
-                text = "DNA Label", 
-                name = "label", 
-                type = "text",
-                isRequired = true, 
-            }
-        }
-    })
-    return dialog["label"]
-end
-
-function GetDNAID()
-    local dialog = exports['qb-input']:ShowInput({
-        header = "Find DNA by ID",
-        submitText = "Fetch",
-        inputs = {
-            {
-                text = "DNA ID", 
-                name = "did", 
-                type = "number",
-                isRequired = true, 
-            }
-        }
-    })
-    return dialog["did"]
-end
-
-function GetDNASerial()
-    local dialog = exports['qb-input']:ShowInput({
-        header = "Find DNA by Serial",
-        submitText = "Fetch",
-        inputs = {
-            {
-                text = "DNA Serial", 
-                name = "dserial", 
-                type = "text",
-                isRequired = true, 
-            }
-        }
-    })
-    return dialog["dserial"]
-end
-
 AddEventHandler("entityDamaged", function (victim, culprit, weapon, dmg)
     if IsEntityAPed(victim) and culprit ~= nil and weapon ~= nil and PlayerPedId() == victim then
         if not IsPedAPlayer(victim) or IsEntityOnFire(victim) then return end
@@ -117,12 +55,4 @@ RegisterNetEvent("ze-evidence:DeleteSplatterMenu", function(splatter)
     local splatterID = NetworkGetEntityFromNetworkId(splatter)
     DeleteEntity(splatterID)
     exports['qb-target']:RemoveZone("blood_splatter_"..splatterID)
-end)
-
-RegisterNetEvent("ze-evidence:client:GetDNAByID", function(data)
-    OpenDNAResultMenu(data)
-end)
-
-RegisterNetEvent("ze-evidence:client:GetDNABySerial", function(data)
-    OpenDNAResultMenu(data)
 end)
