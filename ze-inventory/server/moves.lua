@@ -113,9 +113,14 @@ end
 
 function ToNui(c)
     local list = {}
+    local slots = c.slots
     for slot, item in pairs(c.items) do
         if item then
-            if not item.slot then item.slot = tonumber(slot) end
+            -- The server always indexes by table key, so the key is the slot, whatever the item's own field says.
+            slot = tonumber(slot)
+            item.slot = slot
+            -- An item held beyond the slot count must still be visible and movable, so the grid grows to include it.
+            if slot and slot > slots then slots = slot end
             list[#list + 1] = NuiItem(item)
         end
     end
@@ -126,7 +131,7 @@ function ToNui(c)
         label = c.label,
         sub = c.sub,
         maxWeight = c.maxweight,
-        slots = c.slots,
+        slots = slots,
         readonly = c.readonly or false,
         money = c.money,
         items = list,
@@ -185,6 +190,14 @@ local function Reply(src, ok, message)
     local result = Snapshots(src)
     result.ok = ok
     result.message = message
+    if Config.Debug and result.player then
+        local live, slots = 0, {}
+        local pc = PlayerContainer(src)
+        for slot in pairs(pc and pc.items or {}) do live = live + 1; slots[#slots + 1] = tostring(slot) end
+        table.sort(slots)
+        print(('[ze-inventory] reply to %s: ok=%s, items in server table=%d (slots %s), items sent to UI=%d'):format(
+            src, tostring(ok), live, table.concat(slots, ','), #result.player.items))
+    end
     return result
 end
 
@@ -245,6 +258,41 @@ local function PurchaseFromShop(src, A, B, fromSlot, toSlotRaw, amount)
     return Reply(src, true)
 end
 
+-- Helpers for the safety check in MoveItem: total of every item across the inventories involved, and a way to put one back.
+local function Tally(A, B)
+    local totals = {}
+    local function add(items)
+        for _, it in pairs(items) do
+            if it then totals[it.name] = (totals[it.name] or 0) + (tonumber(it.amount) or 0) end
+        end
+    end
+    add(A.items)
+    if B.items ~= A.items then add(B.items) end
+    return totals
+end
+
+local function SameTally(a, b)
+    for name, total in pairs(a) do
+        if b[name] ~= total then return false end
+    end
+    for name, total in pairs(b) do
+        if a[name] ~= total then return false end
+    end
+    return true
+end
+
+local function Backup(c)
+    local copy = {}
+    for slot, it in pairs(c.items) do copy[slot] = Shared.DeepCopy(it) end
+    return copy
+end
+
+-- Refills the live table in place, so everything that holds a reference to it (qb-core's PlayerData) sees the restore.
+local function Restore(c, backup)
+    for slot in pairs(c.items) do c.items[slot] = nil end
+    for slot, it in pairs(backup) do c.items[slot] = it end
+end
+
 function MoveItem(src, data)
     if type(data) ~= 'table' or type(data.from) ~= 'table' or type(data.to) ~= 'table' then
         return Reply(src, false, Shared.Text.denied)
@@ -252,10 +300,15 @@ function MoveItem(src, data)
     local A = GetContainer(src, data.from)
     local B = GetContainer(src, data.to)
     if not A or not B then return Reply(src, false, Shared.Text.denied) end
+    -- QBCore.Functions.GetPlayer returns a fresh COPY of the player's data on every call. A move inside one inventory
+    -- must therefore work on a single copy: with two, the item is removed from one and added to the other, and saving
+    -- the first one deletes it.
+    if data.from.id == data.to.id then B = A end
 
     local fromSlot = math.floor(tonumber(data.from.slot) or 0)
     local item = A.items[fromSlot]
-    if fromSlot < 1 or fromSlot > A.slots or not item then return Reply(src, false, Shared.Text.denied) end
+    -- No upper bound on the source slot: an item the server holds beyond the slot count is shown by ToNui and must be movable.
+    if fromSlot < 1 or not item then return Reply(src, false, Shared.Text.denied) end
     -- The UI says which item it believes it is moving; if that is stale, refuse and let the reply resync it.
     if data.name and data.name ~= item.name then return Reply(src, false, Shared.Text.denied) end
     if B.readonly then return Reply(src, false, Shared.Text.readonly) end
@@ -299,7 +352,15 @@ function MoveItem(src, data)
         if swap and dst.type == 'weapon' and (B.type == 'player' or B.type == 'otherplayer') then checkWeapon(B.owner, dst) end
     end
 
-    -- Everything is checked; from here on nothing can fail halfway.
+    -- Everything is checked. Remember what both inventories held so the result can be proven correct below.
+    local before = Tally(A, B)
+    local backupA = Backup(A)
+    local backupB = cross and Backup(B) or nil
+    if Config.Debug then
+        print(('[ze-inventory] move by %s: %s slot %s -> %s slot %s, amount %s, item %s (%s)'):format(
+            src, A.id, fromSlot, B.id, toSlot, amount, item.name, stack and 'stack' or swap and 'swap' or 'move'))
+    end
+
     if stack then
         dst.amount = dst.amount + amount
         item.amount = item.amount - amount
@@ -319,6 +380,18 @@ function MoveItem(src, data)
         part.slot = toSlot
         item.amount = item.amount - amount
         B.items[toSlot] = part
+    end
+
+    -- No item may be created or lost by a move, and the moved item must now sit where it was sent.
+    -- If that is not true, undo everything and say why instead of letting the player lose something.
+    local after = Tally(A, B)
+    local placed = B.items[toSlot]
+    if not SameTally(before, after) or not placed or placed.name ~= item.name then
+        Restore(A, backupA)
+        if cross then Restore(B, backupB) end
+        print(('^1[ze-inventory] move by %s was undone because the item counts did not add up (%s slot %s -> %s slot %s, %s x%s).^7'):format(
+            src, A.id, fromSlot, B.id, toSlot, item.name, amount))
+        return Reply(src, false, Shared.Text.denied)
     end
 
     CommitContainer(A)

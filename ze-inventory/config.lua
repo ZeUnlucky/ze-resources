@@ -3,6 +3,8 @@ Config = {}
 -- Names and defaults match qb-inventory so existing habits and docs still apply.
 Config.UseTarget = GetConvar('UseTarget', 'false') == 'true'
 
+Config.Debug = false -- true prints every move to the server console (who, from where to where, what)
+
 Config.MaxWeight = 120000 -- grams
 Config.MaxSlots = 40
 

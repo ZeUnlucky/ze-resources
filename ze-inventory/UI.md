@@ -82,7 +82,7 @@ and skips the rollback.
 |---|---|---|
 | `ready` | `{}` | UI finished loading. |
 | `close` | `{}` | The player pressed a close key or the ✕. |
-| `moveItem` | `{ from = {id, type, slot}, to = {id, type, slot}, amount, name }` | Drag, shift-click, context menu or 1–9 bind. `to.slot` is already resolved. Buying from a shop is a `moveItem` whose source is a `shop` inventory. |
+| `moveItem` | `{ from = {id, type, slot}, to = {id, type, slot}, amount, name }` | Drag, shift-click or context menu. `to.slot` is already resolved. Buying from a shop is a `moveItem` whose source is a `shop` inventory. |
 | `useItem` | `{ slot, name }` | Double-click, context menu, or dropped on the Use zone. |
 | `giveItem` | `{ slot, amount, name }` | Dropped on the Give zone or context menu. |
 | `dropItem` | `{ slot, amount, name }` | Dropped on the Drop zone or context menu. |

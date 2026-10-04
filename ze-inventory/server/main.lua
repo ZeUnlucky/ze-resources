@@ -389,14 +389,31 @@ QBCore.Functions.CreateCallback('qb-inventory:server:GetCurrentDrops', function(
     cb(drops)
 end)
 
+-- Every UI action must get an answer. If the Lua behind it errors, the player is sent the real state and told it
+-- failed, instead of the UI waiting forever on a change the server never made.
+local function Guarded(name, src, cb, fn, ...)
+    local ok, result = pcall(fn, src, ...)
+    if not ok then
+        print(('^1[ze-inventory] %s failed for player %s: %s^7'):format(name, src, tostring(result)))
+        PushSync(src)
+        return cb({ ok = false, message = Shared.Text.denied })
+    end
+    cb(result)
+end
+
 QBCore.Functions.CreateCallback('ze-inventory:server:moveItem', function(src, cb, data)
-    cb(MoveItem(src, data))
+    Guarded('moveItem', src, cb, MoveItem, data)
 end)
 
 QBCore.Functions.CreateCallback('ze-inventory:server:dropItem', function(src, cb, slot, amount)
-    cb(DropFromPlayer(src, slot, amount))
+    Guarded('dropItem', src, cb, DropFromPlayer, slot, amount)
 end)
 
 QBCore.Functions.CreateCallback('ze-inventory:server:giveItem', function(src, cb, target, slot, amount)
-    cb(GiveToPlayer(src, target, slot, amount))
+    Guarded('giveItem', src, cb, GiveToPlayer, target, slot, amount)
+end)
+
+-- The UI asks for this when an answer never arrived: send back what the server really has.
+RegisterNetEvent('ze-inventory:server:requestSync', function()
+    PushSync(source)
 end)

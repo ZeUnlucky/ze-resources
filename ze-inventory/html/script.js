@@ -11,6 +11,7 @@
         readonly: 'You cannot put items here',
         occupied: 'That slot is taken by another item',
         denied: 'That did not work',
+        noReply: 'No answer from the server, change undone',
         use: 'Use',
         give: 'Give',
         drop: 'Drop',
@@ -210,17 +211,34 @@
 
         const isArray = Array.isArray(raw.items);
         const entries = Object.entries(raw.items || {});
-        const loose = [];
+        const parsed = [];
         for (const [key, value] of entries) {
             const hinted = Math.floor(num(value && value.slot, isArray ? Number(key) + 1 : Number(key)));
             const item = normalizeItem(value, hinted);
             if (!item) continue;
-            if (hinted >= 1 && hinted <= slots && !data.items[hinted - 1]) data.items[hinted - 1] = item;
+            parsed.push(item);
+            // An item the server holds beyond the advertised slot count must still be shown: grow the grid for it.
+            if (hinted > data.items.length) {
+                const from = data.items.length;
+                data.items.length = hinted;
+                data.items.fill(null, from);
+            }
+        }
+        data.slots = data.items.length;
+
+        const loose = [];
+        for (const item of parsed) {
+            if (item.slot >= 1 && item.slot <= data.slots && !data.items[item.slot - 1]) data.items[item.slot - 1] = item;
             else loose.push(item);
         }
+        // Two items claiming the same slot, or one with no usable slot: never drop it, always give it a place.
         for (const item of loose) {
-            const free = data.items.indexOf(null);
-            if (free === -1) break;
+            let free = data.items.indexOf(null);
+            if (free === -1) {
+                data.items.push(null);
+                free = data.items.length - 1;
+                data.slots = data.items.length;
+            }
             item.slot = free + 1;
             data.items[free] = item;
         }
@@ -565,7 +583,10 @@
     }
 
     // Apply a change locally, tell the server, and roll back if it says no.
-    function transact(event, payload, mutate) {
+    // Only one change is in flight at a time, and the UI stays locked until the server has answered. If it never does,
+    // the change is undone and the server is asked for the real state, so the UI can never keep a made-up inventory.
+    const REPLY_TIMEOUT_MS = 6000;
+    function transact(event, payload, mutate, okMessage) {
         if (ui.busy) return;
         const snap = snapshot();
         const rev = ui.rev;
@@ -573,11 +594,28 @@
         renderAll();
 
         ui.busy = true;
-        const timer = setTimeout(() => { ui.busy = false; }, 1500);
+        let settled = false;
+        const timer = setTimeout(() => {
+            if (settled) return;
+            settled = true;
+            ui.busy = false;
+            if (ui.rev === rev) {
+                restore(snap);
+                renderAll();
+            }
+            toast(TEXT.noReply, 'err');
+            post('resync');
+        }, REPLY_TIMEOUT_MS);
+
         post(event, payload).then((res) => {
+            if (settled) return; // the timeout already undid this and asked for the real state
+            settled = true;
             clearTimeout(timer);
             ui.busy = false;
-            if (accepted(res)) return;
+            if (accepted(res)) {
+                if (okMessage) toast(okMessage, 'ok');
+                return;
+            }
             // If the server already pushed fresh data in the meantime, that is the truth; do not overwrite it.
             if (ui.rev === rev) {
                 restore(snap);
@@ -618,7 +656,9 @@
         const item = inv.player && inv.player.items[slot - 1];
         if (!item) return;
         const amount = ui.amount > 0 ? Math.min(ui.amount, item.amount) : item.amount;
-        transact(event, { slot, amount, name: item.name }, () => takeFrom(inv.player, slot, amount, false));
+        const verb = event === 'giveItem' ? 'Gave' : 'Dropped';
+        const okMessage = `${verb} ×${amount} ${item.label}`;
+        transact(event, { slot, amount, name: item.name }, () => takeFrom(inv.player, slot, amount, false), okMessage);
     }
 
     function runZone(zone, slot) {
@@ -802,8 +842,6 @@
             list.appendChild(row);
         }
         tipEl.appendChild(list);
-
-        if (node.dataset.side === 'player') tipEl.appendChild(el('p', 'tip-hint', 'Press 1–5 to bind to a quick slot'));
         tipEl.hidden = false;
     }
 
@@ -1004,15 +1042,8 @@
         }
         if (key === 'Enter' && typing) {
             e.target.blur();
-            return;
         }
-
-        if (!typing && /^[1-9]$/.test(key)) {
-            const slot = Number(key);
-            const node = ui.hoverNode;
-            if (slot > cfg.hotbarSlots || !node || !node.isConnected || drag) return;
-            commitMove(node.dataset.side, Number(node.dataset.slot), 'player', slot, 0);
-        }
+        // Number keys deliberately do nothing while the inventory is open: items move by dragging only.
     }
 
     function init() {

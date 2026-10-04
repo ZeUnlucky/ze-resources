@@ -18,6 +18,6 @@ QBCore.Functions.CreateCallback("ze-k9:CheckForContrabandInInventory", function(
         end
         cb(found)
     else
-        cb(nil)
+        cb(false)
     end
 end)

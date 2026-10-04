@@ -262,6 +262,15 @@ end
 -- The server answers every action with { ok, message, player, other }. The snapshots go to the UI first, so it shows
 -- what the server really has; then the UI is told whether to keep or undo its own prediction.
 local function Finish(result, cb)
+    if Config.Debug and type(result) == 'table' then
+        local count, slots = 0, {}
+        for _, item in pairs(result.player and result.player.items or {}) do
+            count = count + 1
+            slots[#slots + 1] = tostring(item.slot) .. ':' .. tostring(item.name)
+        end
+        print(('[ze-inventory] server answered: ok=%s message=%s items received=%d [%s]'):format(
+            tostring(result.ok), tostring(result.message), count, table.concat(slots, ', ')))
+    end
     if type(result) ~= 'table' then return cb(false) end
     if result.player or result.other ~= nil then
         PushUpdate({ player = result.player, other = result.other })
@@ -270,6 +279,11 @@ local function Finish(result, cb)
 end
 
 RegisterNUICallback('ready', function(_, cb)
+    cb('ok')
+end)
+
+RegisterNUICallback('resync', function(_, cb)
+    TriggerServerEvent('ze-inventory:server:requestSync')
     cb('ok')
 end)
 
