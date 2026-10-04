@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ze-hud preview</title>
+<style>
+    /* Dev only: runs the real NUI in an iframe and fakes what client/main.lua sends.
+       Serve the resources folder over http (see README.md) and open this page. Not part of files{}. */
+    html, body { margin: 0; height: 100%; background: #0b0e13; overflow: hidden; font: 12px/1.3 "Segoe UI", sans-serif; color: #cfd6e2; }
+    .scene {
+        position: fixed; inset: 0;
+        background:
+            linear-gradient(180deg, rgba(40, 60, 90, 0.9) 0%, rgba(90, 100, 110, 0.7) 45%, rgba(30, 32, 36, 1) 46%, rgba(24, 26, 30, 1) 100%);
+    }
+    .scene::before { /* a road, so translucent panels have something to sit on */
+        content: ""; position: absolute; left: 20%; right: 20%; bottom: 0; height: 54%;
+        background: linear-gradient(90deg, transparent 49.6%, rgba(255, 220, 120, 0.5) 49.6%, rgba(255, 220, 120, 0.5) 50.4%, transparent 50.4%);
+        transform: perspective(300px) rotateX(35deg); transform-origin: bottom;
+    }
+    #mock-map {
+        position: fixed; z-index: 0;
+        background:
+            linear-gradient(90deg, transparent 38%, #8aa 38%, #8aa 40%, transparent 40%),
+            linear-gradient(0deg, transparent 55%, #9ab 55%, #9ab 57%, transparent 57%),
+            #1f3a52;
+        display: none;
+    }
+    body.shape-circle-mock #mock-map { border-radius: 50%; }
+    iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; z-index: 1; background: transparent; }
+    #ctl {
+        position: fixed; z-index: 5; top: 8px; left: 8px; width: 210px; padding: 8px; border-radius: 10px;
+        background: rgba(10, 12, 16, 0.92); border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    #ctl.min { width: auto; }
+    #ctl.min .body { display: none; }
+    #ctl h3 { margin: 0 0 6px; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #5eead4; cursor: pointer; }
+    #ctl button {
+        margin: 2px 2px 0 0; padding: 4px 7px; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 6px;
+        background: #1b2029; color: #edf0f5; cursor: pointer; font: inherit;
+    }
+    #ctl button:hover { border-color: #5eead4; }
+    #ctl hr { border: 0; border-top: 1px solid rgba(255, 255, 255, 0.1); margin: 6px 0; }
+</style>
+</head>
+<body>
+<div class="scene"></div>
+<div id="mock-map"></div>
+<iframe id="hud" src="../html/index.html"></iframe>
+
+<div id="ctl">
+    <h3 id="ctlTitle">ze-hud preview</h3>
+    <div class="body">
+        <button data-s="foot">On foot</button>
+        <button data-s="car">Car</button>
+        <button data-s="air">Aircraft</button>
+        <button data-s="bike">Motorbike</button>
+        <hr>
+        <button data-s="hurt">Hurt</button>
+        <button data-s="dead">Dead</button>
+        <button data-s="water">Underwater</button>
+        <button data-s="talk">Talking</button>
+        <button data-s="radio">Radio</button>
+        <hr>
+        <button data-s="cash">+Cash</button>
+        <button data-s="spend">-Cash</button>
+        <button data-s="bank">+Bank</button>
+        <button data-s="showcash">/cash</button>
+        <hr>
+        <button data-s="circle">Circle map</button>
+        <button data-s="square">Square map</button>
+        <button data-s="menu">Menu</button>
+        <button data-s="sweep">Sweep speed</button>
+        <button data-s="spin">Spin compass</button>
+        <button data-s="paused">Pause</button>
+    </div>
+</div>
+
+<script>
+(() => {
+    const hud = document.getElementById('hud');
+    const mockMap = document.getElementById('mock-map');
+    const send = (msg) => hud.contentWindow.postMessage(msg, '*');
+
+    // Same shape as Config.MapFrame / Config.Defaults in config.lua
+    const mapFrame = {
+        square: { left: 2.5, bottom: 6.0, width: 29.0, height: 18.5 },
+        circle: { left: 3.7, bottom: 7.0, width: 27.3, height: 22.9 },
+    };
+    const settings = {
+        autoHealth: true, autoArmor: true, autoHunger: true, autoThirst: true, autoStress: true, autoStamina: true,
+        autoEngine: true, autoNitro: true, optimized: true,
+        mapShape: 'square', mapFrame: true, hideMap: false, minimapOnFoot: false,
+        compassShow: true, compassOnFoot: false, compassFollowCam: true, compassOptimized: true,
+        streetNames: true, compassPointer: true, compassDegrees: true,
+        soundMenu: true, soundToggle: true, soundReset: true, notifyMap: true, notifyFuel: true, notifyCinematic: true,
+        cinematic: false,
+    };
+
+    const base = {
+        action: 'tick', show: true, health: 100, dead: false, armor: 0, hunger: 100, thirst: 100, stress: 0,
+        stamina: 100, underwater: false, voice: 2, talking: false, radio: 0, radioActive: false,
+        armed: false, chute: false, dev: false, radar: false, frame: false, veh: false,
+    };
+    let cur = Object.assign({}, base);
+    const car = () => ({ speed: 64, fuel: 72, engine: 100, nitro: 0, nitroOn: false, belt: true, beltable: true, harness: false, cruise: false, air: false, rpm: 0.42, gear: '3' });
+
+    const set = (patch) => { cur = Object.assign({}, cur, patch); cur.frame = cur.radar && settings.mapFrame; send(cur); layoutMock(); };
+    const sendSettings = () => send({ action: 'settings', settings });
+
+    function layoutMock() {
+        const g = mapFrame[settings.mapShape];
+        mockMap.style.display = cur.radar && cur.show ? 'block' : 'none';
+        mockMap.style.left = g.left + 'vh'; mockMap.style.bottom = g.bottom + 'vh';
+        mockMap.style.width = g.width + 'vh'; mockMap.style.height = g.height + 'vh';
+        document.body.classList.toggle('shape-circle-mock', settings.mapShape === 'circle');
+    }
+
+    // The NUI calls this instead of fetch() (see post() in script.js)
+    hud.addEventListener('load', () => {
+        hud.contentWindow.ZE_POST = (name, data) => {
+            if (name === 'set') { settings[data.key] = data.value; sendSettings(); layoutMock(); }
+            if (name === 'close') send({ action: 'menu', open: false });
+            if (name === 'action' && data.name === 'reset') console.log('reset requested');
+        };
+        send({ action: 'init', accent: '#5eead4', currency: { locale: 'en-US', code: 'USD' }, mph: true, maxSpeed: 180, voiceLevels: 3, stress: true, mapFrame, settings });
+        set({});
+    });
+
+    let sweepTimer = 0, spinTimer = 0;
+    const stop = () => { clearInterval(sweepTimer); clearInterval(spinTimer); };
+
+    const scenes = {
+        foot: () => { stop(); set(Object.assign({}, base, { radar: false })); send({ action: 'compass', show: false }); },
+        car: () => {
+            stop();
+            set(Object.assign({}, base, { health: 82, armor: 45, hunger: 64, thirst: 38, stress: 22, stamina: 100, radar: true, veh: car() }));
+            send({ action: 'compass', show: true, heading: 274, street1: 'Alta Street', street2: 'Vinewood Boulevard', area: 'Vinewood' });
+        },
+        air: () => {
+            stop();
+            set(Object.assign({}, base, { radar: true, armed: true, veh: Object.assign(car(), { speed: 142, air: true, alt: 1250, gear: undefined, rpm: undefined, beltable: false, fuel: 28 }) }));
+            send({ action: 'compass', show: true, heading: 12, street1: 'Los Santos Freeway', street2: '', area: 'Downtown' });
+        },
+        bike: () => {
+            stop();
+            set(Object.assign({}, base, { health: 60, hunger: 22, radar: true, veh: Object.assign(car(), { speed: 112, beltable: false, gear: '4', rpm: 0.93, engine: 40, nitro: 60, nitroOn: true, harness: true, cruise: true, belt: false }) }));
+            send({ action: 'compass', show: true, heading: 90, street1: 'Great Ocean Highway', street2: 'Procopio Drive', area: 'Chumash' });
+        },
+        hurt: () => set({ health: 18, hunger: 12, thirst: 27, stress: 82, armor: 0, armed: true, chute: true, dev: true }),
+        dead: () => set({ dead: true, health: 0 }),
+        water: () => set({ underwater: true, stamina: 42 }),
+        talk: () => set({ talking: !cur.talking }),
+        radio: () => set({ radio: cur.radio ? 0 : 12, radioActive: !cur.radio }),
+        cash: () => send({ action: 'money', mode: 'change', type: 'cash', cash: 5250, bank: 18200, amount: 250, minus: false }),
+        spend: () => send({ action: 'money', mode: 'change', type: 'cash', cash: 5010, bank: 18200, amount: 240, minus: true }),
+        bank: () => send({ action: 'money', mode: 'change', type: 'bank', cash: 5250, bank: 20000, amount: 1800, minus: false }),
+        showcash: () => { send({ action: 'money', mode: 'show', type: 'cash', value: 5250 }); send({ action: 'money', mode: 'show', type: 'bank', value: 20000 }); },
+        circle: () => { settings.mapShape = 'circle'; sendSettings(); layoutMock(); },
+        square: () => { settings.mapShape = 'square'; sendSettings(); layoutMock(); },
+        menu: () => send({ action: 'menu', open: true, settings }),
+        sweep: () => {
+            stop(); scenes.car();
+            let t = 0;
+            sweepTimer = setInterval(() => {
+                t += 0.04;
+                const s = Math.round((Math.sin(t) * 0.5 + 0.5) * 190);
+                set({ veh: Object.assign(car(), { speed: s, rpm: Math.min(1, (s % 45) / 45 + 0.2), gear: String(Math.min(6, 1 + Math.floor(s / 45))) }) });
+            }, 80);
+        },
+        spin: () => {
+            stop();
+            let h = 0;
+            spinTimer = setInterval(() => { h = (h + 3) % 360; send({ action: 'compass', show: true, heading: h, street1: 'Spinning Street', street2: '', area: 'Test Area' }); }, 50);
+        },
+        paused: () => set({ show: !cur.show }),
+    };
+
+    document.querySelectorAll('#ctl button').forEach((b) => b.addEventListener('click', () => scenes[b.dataset.s]()));
+    document.getElementById('ctlTitle').addEventListener('click', () => document.getElementById('ctl').classList.toggle('min'));
+    window.zePreview = { send, set, settings, scenes, sendSettings };
+})();
+</script>
+</body>
+</html>
