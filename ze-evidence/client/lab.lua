@@ -4,8 +4,6 @@ local labOpen = false
 local pending = {}
 local lastRequestId = 0
 
--- Sends a request to server/lab.lua and waits for its response. Must be called from a
--- thread (NUI callbacks already are).
 local function LabRequest(action, payload)
     lastRequestId = lastRequestId + 1
     local requestId = lastRequestId
