@@ -1,10 +1,7 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 
--- Column size of ze_casings.label / ze_dnas.label.
 local MAX_LABEL_LENGTH = 255
 
--- Everything that differs between the two kinds of lab evidence lives here, so the
--- submit and search handlers below work for both.
 local EvidenceTypes = {
     casing = {
         item = "casing",
@@ -50,8 +47,6 @@ local function IsLabAuthorized(Player)
     return (job.grade and job.grade.level or 0) >= minGrade
 end
 
--- Splits the evidence a player is carrying into single loggable units (one entry per
--- item in the stack) and a count of items that carry no data the lab could log.
 local function CollectEvidence(Player, evidence)
     local units, unusable = {}, 0
     for _, item in pairs(Player.PlayerData.items or {}) do
@@ -157,8 +152,6 @@ LabHandlers.search = function(Player, payload)
     return { ok = true, data = { results = rows, limit = limit } }
 end
 
--- Single entry point for the lab UI: the client sends { requestId, action, payload }
--- and always gets exactly one ze-evidence:client:LabResponse back.
 RegisterNetEvent("ze-evidence:server:LabRequest", function(requestId, action, payload)
     local src = source
     local handler = type(action) == "string" and LabHandlers[action]
