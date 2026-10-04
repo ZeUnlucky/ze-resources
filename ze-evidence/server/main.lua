@@ -50,10 +50,10 @@ end)
 
 RegisterServerEvent("ze-evidence:GetFingerprintFromPlayer", function(pID)
     local Player = QBCore.Functions.GetPlayer(source)
-    local target = QBCore.Functions.GetPlayer(pID)
-    if target ~= nil then
+    local Target = QBCore.Functions.GetPlayer(pID)
+    if Target then
         if Player.Functions.HasItem("pdfingerprinttape", 1) then
-            local fingerprint = Shared.ConvertCitizenIdToFingerprint(Player.PlayerData.citizenid)
+            local fingerprint = Shared.ConvertCitizenIdToFingerprint(Target.PlayerData.citizenid)
             Player.Functions.RemoveItem("pdfingerprinttape", 1)
             TriggerClientEvent('inventory:client:ItemBox', source, QBCore.Shared.Items["pdfingerprinttape"], 'remove')
             local info = {}
@@ -62,6 +62,17 @@ RegisterServerEvent("ze-evidence:GetFingerprintFromPlayer", function(pID)
         else
             QBCore.Functions.Notify(source, "You need fingerprint tape!", "error", 5000)
         end
+    end
+end)
+
+RegisterServerEvent("ze-evidence:GetDNAFromPlayer", function(pID)
+    local Player = QBCore.Functions.GetPlayer(source)
+    local Target = QBCore.Functions.GetPlayer(pID)
+    if Target then
+        local dna = Shared.ConvertCitizenIdToDNA(Target.PlayerData.citizenid)
+        local info = {}
+        if dna then info.DNA = dna end
+        exports['qb-inventory']:AddItem(source, "blood_vial", 1, false, info, 'ze-evidence:takeDNA')
     end
 end)
 
@@ -143,4 +154,96 @@ end)
 
 AddEventHandler('QBCore:Server:PlayerLoaded', function(Player)
     TriggerClientEvent("ze-evidence:PlayerJoined", Player.PlayerData.source, Splatters, Casings)
+end)
+
+RegisterServerEvent("ze-evidence:SubmitCasing", function(label)
+    local Player = QBCore.Functions.GetPlayer(source)
+    if Player and label then
+        local firstnumber, lastnumber = 0, 0
+        while Player.Functions.HasItem("casing") do
+            local item = Player.Functions.GetItemByName("casing")
+            if item.info and item.info.serialNumber then
+                exports['oxmysql']:insert('INSERT INTO `ze_casings` (label, gunSerial, submittedBy) VALUES (?, ?, ?)', {label, item.info.serialNumber, Player.Functions.GetName()}, function(id)
+                    if id then
+                        lastnumber = id
+                        if firstnumber == 0 then firstnumber = id end
+                    end
+                end)
+                Player.Functions.RemoveItem("casing", 1, item.slot)
+            end
+        end
+        QBCore.Functions.Notify(source, "Your casing IDs are " .. firstnumber .. "-" .. lastnumber, "success", 15000)
+    end
+end)
+
+RegisterServerEvent("ze-evidence:server:GetCasingByID", function(cid)
+    local src = source
+    if cid then
+        exports['oxmysql']:query('select * from `ze_casings` where `id` = ?', {cid}, function(response)
+            if response then
+                TriggerClientEvent("ze-evidence:client:GetCasingByID", src, response)
+            else
+                QBCore.Functions.Notify(src, "Couldn't find casing.", "error", 10000)
+            end
+        end)
+    end
+end)
+
+RegisterServerEvent("ze-evidence:server:GetCasingsBySerial", function(gserial)
+    local src = source
+    if gserial then
+        exports['oxmysql']:query('select * from `ze_casings` where `gunSerial` = ?', {gserial}, function(response)
+            if response then
+                TriggerClientEvent("ze-evidence:client:GetCasingsBySerial", src, response)
+            else
+                QBCore.Functions.Notify(src, "Couldn't find casings.", "error", 10000)
+            end
+        end)
+    end
+end)
+
+RegisterServerEvent("ze-evidence:SubmitDNA", function(label)
+    local src = source
+    local Player = QBCore.Functions.GetPlayer(src)
+    if Player and label then
+        local firstnumber, lastnumber = 0
+        while Player.Functions.HasItem("blood_vial") do
+            local item = Player.Functions.GetItemByName("blood_vial")
+            if item.info and item.info.DNA then
+                exports['oxmysql']:insert('INSERT INTO `ze_dnas` (label, dnaString, submittedBy) VALUES (?, ?, ?)', {label, item.info.DNA, Player.Functions.GetName()}, function(id)
+                    if firstnumber == 0 then firstnumber = id end
+                    lastnumber = id
+                end)
+                Player.Functions.RemoveItem("blood_vial", 1, item.slot)
+            end
+        end
+        QBCore.Functions.Notify(src, "Your DNA IDs are " .. firstnumber .. "-" .. lastnumber, "success", 10000)
+    end
+end)
+
+
+RegisterServerEvent("ze-evidence:server:GetDNAByID", function(did)
+    local src = source
+    if did then
+        exports['oxmysql']:query('select * from `ze_dnas` where `id` = ?', {did}, function(response)
+            if response then
+                TriggerClientEvent("ze-evidence:client:GetDNAByID", src, response)
+            else
+                QBCore.Functions.Notify(src, "Couldn't find DNA.", "error", 5000)
+            end
+        end)
+    end
+end)
+
+RegisterServerEvent("ze-evidence:server:GetDNABySerial", function(dserial)
+    local src = source
+    if dserial then
+        exports['oxmysql']:query('select * from `ze_dnas` where `dnaString` = ?', {dserial}, function(response)
+            if response then
+                TriggerClientEvent("ze-evidence:client:GetDNABySerial", src, response)
+            else
+                QBCore.Functions.Notify(src, "Couldn't find DNA.", "error", 10000)
+            end
+        end)
+    end
 end)
