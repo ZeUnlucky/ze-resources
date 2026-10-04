@@ -21,6 +21,7 @@ Citizen.CreateThread(function()
 
     while true do
         Citizen.Wait(0)
+        print("HERE")
         if IsPedShooting(PlayerPedId()) then
             Citizen.Wait(50)
             print('[ze-evidence:debug] client: shot detected, requesting shell model')
