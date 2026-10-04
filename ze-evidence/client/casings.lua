@@ -40,7 +40,7 @@ AddEventHandler("ze-evidence:RegisterNewCasingClient", function(casingId, serial
                     TriggerServerEvent("ze-evidence:CollectCasing", casingId)
                 end,
                 drawDistance = 10.0, 
-                drawColor = {255, 0, 0, 0}, 
+                drawColor = {255, 165, 0, 0}, 
                 successDrawColor = {30, 144, 255, 255},
             }
         },

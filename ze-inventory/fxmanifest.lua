@@ -20,6 +20,7 @@ files {
     'html/style.css',
     'html/script.js',
     'html/images/*.png',
+    'html/images/*.PNG', -- a few of the bundled weapon icons use the uppercase extension
 }
 
 shared_scripts {

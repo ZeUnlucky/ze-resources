@@ -39,6 +39,24 @@
         { match: (i) => i.name === 'blood_vial', key: 'DNA', text: 'Copy DNA', done: 'DNA copied' },
     ];
 
+    // Items whose shared item definition points at a file that does not exist (or at placeholder.png).
+    // Keeping the fix here means qb-core's items.lua does not have to change.
+    const IMAGE_OVERRIDES = {
+        casing: 'casing.png', // the shared definition borrows mg_ammo.png
+        weapon_briefcase_02: 'weapon_briefcase_02.PNG',
+        weapon_bread: 'weapon_bread.png',
+        weapon_candycane: 'weapon_candycane.png',
+        weapon_smokegrenade: 'weapon_smokegrenade.PNG',
+        weapon_proxmine: 'weapon_proxmine.png',
+        weapon_remotesniper: 'weapon_remotesniper.png',
+        weapon_unarmed: 'weapon_unarmed.png',
+        blood_vial: 'blood_vial.png',
+        pdfingerprinttape: 'pdfingerprinttape.png',
+        usedfingerprinttape: 'usedfingerprinttape.png',
+        emptybloodbag: 'emptybloodbag.png',
+        fullbloodbag: 'fullbloodbag.png',
+    };
+
     // Everything here can be overridden from Lua through `config` on open/update.
     const cfg = {
         imagePath: `nui://${RESOURCE}/html/images/`,
@@ -160,7 +178,7 @@
             amount: unique ? 1 : Math.max(1, Math.floor(num(raw.amount, 1))),
             weight: Math.max(0, num(raw.weight)),
             type: String(raw.type || 'item'),
-            image: raw.image ? String(raw.image) : `${name}.png`,
+            image: IMAGE_OVERRIDES[name] || (raw.image ? String(raw.image) : `${name}.png`),
             unique,
             useable: raw.useable !== false,
             description: raw.description ? String(raw.description) : '',
