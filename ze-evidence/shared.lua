@@ -1,34 +1,47 @@
 Shared = {}
 
-Shared.ConvertCitizenIdToFingerprint = function(citizenId)
-    local fingerprint = ""
-    for i = 1, #citizenId do
-        local charActual = citizenId:sub(i,i)
-        local charVal = string.byte(charActual) + 15
-        if charVal > 58 and charVal < 64 then
-            charVal = charVal + 15
-        elseif charVal > 90 then
-            charVal = charVal - 30
-        end
-        fingerprint = fingerprint .. string.char(charVal)
-       
+-- Fingerprints and DNA are derived from the citizen id with a keyed 64-bit hash (FNV-1a, then splitmix64 to
+-- spread the bits), so the same person always gets the same value but it cannot be read back into the id.
+-- Integer wrap-around and the ~ / >> operators behave the same in Lua 5.3 and 5.4.
+local function hash64(text)
+    local h = 0xcbf29ce484222325
+    for i = 1, #text do
+        h = (h ~ text:byte(i)) * 0x100000001b3
     end
-    return fingerprint
+    return h
 end
 
-Shared.ConvertCitizenIdToDNA = function(citizenId)
-    local DNA = ""
-    for i = 1, #citizenId do
-        local charActual = citizenId:sub(i,i)
-        local charVal = string.byte(charActual) + 4
-        if charVal > 58 and charVal < 64 then
-            charVal = charVal + 4
-        elseif charVal > 90 then
-            charVal = charVal - 8
+local function mix64(z)
+    z = (z ~ (z >> 30)) * 0xbf58476d1ce4e5b9
+    z = (z ~ (z >> 27)) * 0x94d049bb133111eb
+    return z ~ (z >> 31)
+end
+
+-- Builds `groups` groups of `size` characters from `alphabet`, joined with dashes.
+local function derive(kind, citizenId, alphabet, groups, size)
+    local secret = tostring(Config and Config.EvidenceSecret or 'ze-evidence')
+    local state = hash64(secret .. ':' .. kind .. ':' .. tostring(citizenId):upper())
+    local parts = {}
+    for g = 1, groups do
+        local chars = {}
+        for c = 1, size do
+            state = state + 0x9e3779b97f4a7c15
+            local pick = (mix64(state) >> 33) % #alphabet + 1
+            chars[c] = alphabet:sub(pick, pick)
         end
-        DNA = DNA .. string.char(charVal)
+        parts[g] = table.concat(chars)
     end
-    return DNA
+    return table.concat(parts, '-')
+end
+
+-- e.g. K7QM-2XHD-9TPA (no 0/O/1/I so it is easy to read out over the radio)
+Shared.ConvertCitizenIdToFingerprint = function(citizenId)
+    return derive('fingerprint', citizenId, 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 3, 4)
+end
+
+-- e.g. GATTAC-CGTAAG-TCAGCT-AACGTG-CTAGGA (30 bases; fits the ze_dnas.dnaString column)
+Shared.ConvertCitizenIdToDNA = function(citizenId)
+    return derive('dna', citizenId, 'ACGT', 5, 6)
 end
 
 Shared.DumpTable = function(o)

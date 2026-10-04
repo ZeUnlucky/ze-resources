@@ -47,6 +47,16 @@ for name, fn in pairs(API) do
     end
 end
 
+-- Every resource that calls exports['qb-inventory'] caches the function it was handed, and Cfx only drops that cache
+-- when a resource *named* qb-inventory stops. Restarting ze-inventory alone would leave qb-core, ze-evidence and the
+-- rest holding dead references ("Execution of function reference in script host failed"), so announce a stop for the
+-- stand-in's name once the new handlers above are in place. A fresh boot just clears empty caches.
+if asQbInventory then
+    CreateThread(function()
+        TriggerEvent('onServerResourceStop', 'qb-inventory')
+    end)
+end
+
 -- Check the setup a few seconds after start, once the other resources have had time to come up.
 CreateThread(function()
     Wait(10000)

@@ -13,4 +13,6 @@ Config.LabJobs = {
 -- Most records a single lab search will return.
 Config.LabMaxResults = 100
 
-Config.FingerprintConvertionSecret = 15
+-- Mixed into every fingerprint and DNA string. Change it to a private value of your own; changing it later
+-- gives everyone new prints and DNA, so evidence logged under the old value will no longer match.
+Config.EvidenceSecret = 'ze-evidence-change-me'

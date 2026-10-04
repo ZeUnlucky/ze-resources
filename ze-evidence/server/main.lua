@@ -3,6 +3,24 @@ local QBCore = exports['qb-core']:GetCoreObject()
 Casings = {}
 Splatters = {}
 
+-- Shows the "+1 Item" / "-1 Item" notice. ze-inventory (like qb-inventory) listens for this event;
+-- AddItem and RemoveItem never send it themselves.
+function ShowItemBox(src, itemName, kind, amount)
+    local itemData = QBCore.Shared.Items[itemName]
+    if not itemData then return end
+    TriggerClientEvent('qb-inventory:client:ItemBox', src, itemData, kind, amount or 1)
+end
+
+-- Adds an item and, only if it really went into the inventory, shows the notice.
+local function GiveEvidenceItem(src, itemName, info, reason)
+    if exports['qb-inventory']:AddItem(src, itemName, 1, false, info, reason) then
+        ShowItemBox(src, itemName, 'add')
+        return true
+    end
+    QBCore.Functions.Notify(src, "You can't carry that.", 'error', 5000)
+    return false
+end
+
 local function GetGunPrints(serial)
     local raw = GetResourceKvpString("ze-evidence:prints:" .. serial)
     return raw and json.decode(raw) or {}
@@ -55,10 +73,10 @@ RegisterServerEvent("ze-evidence:GetFingerprintFromPlayer", function(pID)
         if Player.Functions.HasItem("pdfingerprinttape", 1) then
             local fingerprint = Shared.ConvertCitizenIdToFingerprint(Target.PlayerData.citizenid)
             Player.Functions.RemoveItem("pdfingerprinttape", 1)
-            TriggerClientEvent('inventory:client:ItemBox', source, QBCore.Shared.Items["pdfingerprinttape"], 'remove')
+            ShowItemBox(source, "pdfingerprinttape", 'remove')
             local info = {}
             if fingerprint then info.fingerprint = fingerprint end
-            exports['qb-inventory']:AddItem(source, "usedfingerprinttape", 1, false, info, 'ze-evidence:useTape')
+            GiveEvidenceItem(source, "usedfingerprinttape", info, 'ze-evidence:useTape')
         else
             QBCore.Functions.Notify(source, "You need fingerprint tape!", "error", 5000)
         end
@@ -72,7 +90,7 @@ RegisterServerEvent("ze-evidence:GetDNAFromPlayer", function(pID)
         local dna = Shared.ConvertCitizenIdToDNA(Target.PlayerData.citizenid)
         local info = {}
         if dna then info.DNA = dna end
-        exports['qb-inventory']:AddItem(source, "blood_vial", 1, false, info, 'ze-evidence:takeDNA')
+        GiveEvidenceItem(source, "blood_vial", info, 'ze-evidence:takeDNA')
     end
 end)
 
@@ -88,10 +106,10 @@ QBCore.Commands.Add("checkfinger", "Checks held gun for a fingerprint", {}, fals
             if #prints > 0 then
                 if Player.Functions.HasItem("pdfingerprinttape", 1) then
                     Player.Functions.RemoveItem("pdfingerprinttape", 1)
-                    TriggerClientEvent('inventory:client:ItemBox', source, QBCore.Shared.Items["pdfingerprinttape"], 'remove')
+                    ShowItemBox(source, "pdfingerprinttape", 'remove')
                     local info = {}
                     info.fingerprint = prints
-                    exports['qb-inventory']:AddItem(source, "usedfingerprinttape", 1, false, info, 'ze-evidence:useTape')
+                    GiveEvidenceItem(source, "usedfingerprinttape", info, 'ze-evidence:useTape')
                 else
                     QBCore.Functions.Notify(source, "You need fingerprint tape!", "error", 5000)
                 end
@@ -118,11 +136,13 @@ end)
 
 RegisterServerEvent("ze-evidence:CollectCasing")
 AddEventHandler("ze-evidence:CollectCasing", function(casing)   
-    TriggerClientEvent("ze-evidence:RemoveCasingMenu", -1, casing)
+    if not Casings[casing] then return end
     local info = {}
     info.ammoType = Casings[casing].ammoType
     info.serialNumber = Casings[casing].serialNumber
-    exports['qb-inventory']:AddItem(source, "casing", 1, false, info, 'ze-evidence:gatherCasing')
+    -- A full inventory leaves the casing on the ground instead of destroying the evidence.
+    if not GiveEvidenceItem(source, "casing", info, 'ze-evidence:gatherCasing') then return end
+    TriggerClientEvent("ze-evidence:RemoveCasingMenu", -1, casing)
     Casings[casing] = nil
     DeleteEntity(NetworkGetEntityFromNetworkId(casing))
    
@@ -146,7 +166,7 @@ RegisterServerEvent("ze-evidence:CollectSplatter", function(splatter, DNA, colle
     if collectedAndNotDestroyed then
         local info = {}
         info.DNA = DNA
-        exports['qb-inventory']:AddItem(source, "blood_vial", 1, false, info, 'ze-evidence:collectSplatter')
+        GiveEvidenceItem(source, "blood_vial", info, 'ze-evidence:collectSplatter')
     end
     Splatters[splatter] = nil
     TriggerClientEvent("ze-evidence:DeleteSplatterMenu", -1, splatter)

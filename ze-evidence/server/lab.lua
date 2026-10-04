@@ -118,6 +118,8 @@ LabHandlers.submit = function(Player, payload)
 
     if #ids == 0 then return Fail("Couldn't log your evidence. Nothing was submitted.") end
 
+    ShowItemBox(src, evidence.item, 'remove', #ids)
+
     return {
         ok = true,
         data = {
