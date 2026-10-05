@@ -75,6 +75,10 @@ local function addHouseZones(id)
     local v = Shared.Houses[id]
     if not v then return end
 
+    -- An apartment shares its door with the rest of its building, so it gets no door zone of its own (the building's
+    -- floors and apartments menu comes later).
+    if v.building then return end
+
     houseZones[id] = {}
     -- entrances is keyed by exit number and can have holes (only exit 1 is required), so pairs
     for entranceNum, entrance in pairs(v.entrances) do
@@ -170,6 +174,8 @@ local function setHouse(data)
         name = data.name,
         interior = Config.Interiors[data.interior],
         interiorId = data.interior,
+        building = data.building,
+        floor = data.floor,
         entrances = entrances,
         owner = data.owner,
         keyholders = data.keyholders or {},

@@ -1,14 +1,7 @@
--- ze_houses: loads the houses from the database into Shared.Houses and keeps the database, the server and every client in step.
--- Shared.Houses[id] = { name, interior (the Config.Interiors entry), interiorId, entrances = { [exit number] = vector4 }, owner (citizenid or ''),
---                       keyholders = { citizenid }, locked }
--- `entrances` is keyed by the exit of the interior it connects to and can have holes: exit 1 is always there, the others are optional.
--- Walk it with pairs, not ipairs.
--- The Houses.* functions below are the only place that writes to ze_houses. They return false (and an error text) on a database failure.
 Houses = {}
 
 local loaded = false
 
--- Routing bucket a house lives in. The stash is "interiorStash" .. id.
 function Houses.Bucket(id)
     return id + 5000
 end
@@ -30,23 +23,40 @@ local function build(row)
         return nil
     end
 
-    -- The column is a list of { exit, x, y, z, w }. A row from before optional entrances has no `exit`: its position in the list is the exit.
-    local list = json.decode(row.entrances or '')
-    if type(list) ~= 'table' then list = {} end
-
     local entrances = {}
-    for i, e in ipairs(list) do
-        local exit = tonumber(e.exit) or i
-        if interior.exits[exit] then
-            entrances[exit] = vector4(e.x + 0.0, e.y + 0.0, e.z + 0.0, (e.w or 0.0) + 0.0)
-        else
-            warn(('house #%d "%s": entrance for exit %s is ignored, "%s" has no such exit'):format(row.id, row.name, tostring(exit), interior.name))
-        end
-    end
+    local building, floor
 
-    if not entrances[1] then
-        warn(('house #%d "%s" is skipped: it has no entrance on exit 1'):format(row.id, row.name))
-        return nil
+    if row.building ~= nil then
+        -- An apartment has no entrance of its own: its only entrance (exit 1) is the door of its building.
+        building = Shared.Buildings[row.building]
+        floor = tonumber(row.floor)
+        if not building then
+            warn(('apartment #%d "%s" is skipped: there is no building %s'):format(row.id, row.name, tostring(row.building)))
+            return nil
+        end
+        if not floor or floor ~= math.floor(floor) or floor < 1 or floor > building.floors then
+            warn(('apartment #%d "%s" is skipped: floor %s does not exist in "%s" (it has %d floors)'):format(
+                row.id, row.name, tostring(row.floor), building.name, building.floors))
+            return nil
+        end
+        entrances[1] = building.entrance
+    else
+        local list = json.decode(row.entrances or '')
+        if type(list) ~= 'table' then list = {} end
+
+        for i, e in ipairs(list) do
+            local exit = tonumber(e.exit) or i
+            if interior.exits[exit] then
+                entrances[exit] = vector4(e.x + 0.0, e.y + 0.0, e.z + 0.0, (e.w or 0.0) + 0.0)
+            else
+                warn(('house #%d "%s": entrance for exit %s is ignored, "%s" has no such exit'):format(row.id, row.name, tostring(exit), interior.name))
+            end
+        end
+
+        if not entrances[1] then
+            warn(('house #%d "%s" is skipped: it has no entrance on exit 1'):format(row.id, row.name))
+            return nil
+        end
     end
 
     local keyholders = json.decode(row.keyholders or '')
@@ -54,6 +64,8 @@ local function build(row)
         name = row.name,
         interior = interior,
         interiorId = row.interior,
+        building = row.building,   -- nil for a normal house; building id and floor for an apartment
+        floor = floor,
         entrances = entrances,
         owner = row.owner or '',
         keyholders = type(keyholders) == 'table' and keyholders or {},
@@ -62,7 +74,10 @@ local function build(row)
 end
 
 function Houses.Load()
-    local rows = MySQL.query.await('SELECT id, name, interior, entrances, owner, keyholders, locked FROM ze_houses') or {}
+    -- the apartments need the buildings, so those load first
+    Buildings.Load()
+
+    local rows = MySQL.query.await('SELECT id, name, interior, building, floor, entrances, owner, keyholders, locked FROM ze_houses') or {}
     Shared.Houses = {}
     for _, row in ipairs(rows) do
         local house = build(row)
@@ -90,7 +105,7 @@ function Houses.Pack(id)
     end
     table.sort(entrances, function(a, b) return a.exit < b.exit end)
     -- the keyholders go along so the door of a house can show Lock / Unlock to them too
-    return { id = id, name = house.name, interior = house.interiorId, entrances = entrances, owner = house.owner, keyholders = house.keyholders, locked = house.locked }
+    return { id = id, name = house.name, interior = house.interiorId, building = house.building, floor = house.floor, entrances = entrances, owner = house.owner, keyholders = house.keyholders, locked = house.locked }
 end
 
 -- True when the citizen owns the house or holds a key to it.
@@ -124,19 +139,29 @@ end)
 -- ---------------------------------------------------------------- changes
 
 -- `entrances` is { [exit number] = vector4 }: exit 1 has to be there, the others are optional (the caller checks that).
-function Houses.Create(name, interiorId, entrances)
-    local plain = {}
-    for exit, e in pairs(entrances) do plain[#plain + 1] = { exit = exit, x = e.x, y = e.y, z = e.z, w = e.w } end
-    table.sort(plain, function(a, b) return a.exit < b.exit end)
-
-    local ok, id = pcall(MySQL.insert.await, 'INSERT INTO ze_houses (name, interior, entrances, owner, keyholders, locked) VALUES (?, ?, ?, ?, ?, ?)',
-        { name, interiorId, json.encode(plain), '', '[]', 0 })
+-- An apartment is created with a building id and a floor instead of entrances (pass nil for `entrances`): its only entrance
+-- is the door of the building. The callers check that the building exists and that the floor is one of its floors.
+function Houses.Create(name, interiorId, entrances, building, floor)
+    local ok, id
+    if building then
+        entrances = { [1] = Shared.Buildings[building].entrance }
+        ok, id = pcall(MySQL.insert.await, 'INSERT INTO ze_houses (name, interior, building, floor, entrances, owner, keyholders, locked) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            { name, interiorId, building, floor, '[]', '', '[]', 0 })
+    else
+        local plain = {}
+        for exit, e in pairs(entrances) do plain[#plain + 1] = { exit = exit, x = e.x, y = e.y, z = e.z, w = e.w } end
+        table.sort(plain, function(a, b) return a.exit < b.exit end)
+        ok, id = pcall(MySQL.insert.await, 'INSERT INTO ze_houses (name, interior, entrances, owner, keyholders, locked) VALUES (?, ?, ?, ?, ?, ?)',
+            { name, interiorId, json.encode(plain), '', '[]', 0 })
+    end
     if not ok or not id then return false, 'The database did not save the house' end
 
     Shared.Houses[id] = {
         name = name,
         interior = Config.Interiors[interiorId],
         interiorId = interiorId,
+        building = building,
+        floor = floor,
         entrances = entrances,
         owner = '',
         keyholders = {},
@@ -148,9 +173,23 @@ end
 
 -- Changes the name and the entrances of a house; the interior, owner, keys and lock stay as they are.
 -- `entrances` is { [exit number] = vector4 } like in Houses.Create and replaces the old set (an exit left out loses its entrance).
-function Houses.Update(id, name, entrances)
+-- An apartment has no entrances to change: pass its building and floor instead (nil for `entrances`), and the name, building
+-- and floor are saved.
+function Houses.Update(id, name, entrances, building, floor)
     local house = Shared.Houses[id]
     if not house then return false, 'That house does not exist' end
+
+    if house.building then
+        local ok = pcall(MySQL.update.await, 'UPDATE ze_houses SET name = ?, building = ?, floor = ? WHERE id = ?', { name, building, floor, id })
+        if not ok then return false, 'The database did not save the changes' end
+
+        house.name = name
+        house.building = building
+        house.floor = floor
+        house.entrances = { [1] = Shared.Buildings[building].entrance }
+        Houses.Sync(id)
+        return true
+    end
 
     local plain = {}
     for exit, e in pairs(entrances) do plain[#plain + 1] = { exit = exit, x = e.x, y = e.y, z = e.z, w = e.w } end

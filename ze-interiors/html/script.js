@@ -1,6 +1,7 @@
 /* ze-interiors NUI. Vanilla JS, no build step, no CDNs, no jQuery.
    Lua sends: open, data, close.
-   The UI sends back: getData, getPosition, setWaypoint, lookupPlayer, createHouse, updateHouse, sellHouse, deleteHouse, close. (See README.md.) */
+   The UI sends back: getData, getPosition, setWaypoint, lookupPlayer, createHouse, updateHouse, sellHouse, deleteHouse,
+   createBuilding, deleteBuilding, close. (See README.md.) */
 
 (() => {
     'use strict';
@@ -89,23 +90,36 @@
 
     const COORD_KEYS = ['x', 'y', 'z', 'w'];
 
+    // The Add house form. entrances: one { x, y, z, w } of typed strings per exit (index 0 = exit 1); editing: id of the house
+    // being edited, or null. An apartment has building (id) and floor instead of entrances.
+    const blankAdd = () => ({ name: '', interior: null, entrances: [], editing: null, apartment: false, building: null, floor: null });
+    const blankBuilding = () => ({ name: '', floors: '', entrance: { x: '', y: '', z: '', w: '' } });
+
     const S = {
         open: false,
         tab: 'houses',
         busy: false,
         interiors: [],
+        buildings: [],
         houses: [],
-        // entrances: one { x, y, z, w } of typed strings per exit (index 0 = exit 1); editing: id of the house being edited, or null
-        add: { name: '', interior: null, entrances: [], editing: null },
+        add: blankAdd(),
+        nb: blankBuilding(),
         sell: { house: null, player: '' },
         lookup: { state: 'idle', seq: 0, timer: null },
-        pendingDelete: null,
+        pendingDelete: null,       // { kind: 'house' | 'building', id }
         hideTimer: null,
     };
 
     const interiorById = (id) => S.interiors.find((i) => String(i.id) === String(id)) || null;
+    const buildingById = (id) => S.buildings.find((b) => String(b.id) === String(id)) || null;
     const houseById = (id) => S.houses.find((h) => String(h.id) === String(id)) || null;
     const ownerLabel = (h) => h.ownerName || h.owner || '';
+    const isApartment = (h) => h.building !== undefined && h.building !== null;
+
+    // What the "door" line of a house shows: the entrances of a house, or the building and floor of an apartment.
+    function doorLabel(h) {
+        return isApartment(h) ? `${h.buildingName || 'Building'} · floor ${h.floor}` : entranceCount(h);
+    }
 
     // "2 of 3 entrances" when the interior has more exits than the house has entrances, else "2 entrances".
     function entranceCount(h) {
@@ -116,12 +130,12 @@
 
     // ------------------------------------------------------------------ tabs
 
-    const TITLES = { houses: null, add: 'Create house', sell: 'Sell house' };
+    const TITLES = { houses: null, add: 'Create house', buildings: 'Create building', sell: 'Sell house' };
 
     function selectTab(tab) {
         S.tab = tab;
         document.querySelectorAll('#tabs .tab').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
-        ['houses', 'add', 'sell'].forEach((t) => { $(`#pane-${t}`).hidden = t !== tab; });
+        ['houses', 'add', 'buildings', 'sell'].forEach((t) => { $(`#pane-${t}`).hidden = t !== tab; });
         $('#foot').hidden = tab === 'houses';
         updateAddLabels();
         if (tab === 'sell') renderSellSelect();
@@ -134,6 +148,11 @@
         $('#submit-label').textContent = S.tab === 'add' && editing ? 'Save changes' : (TITLES[S.tab] || '');
         $('#reset').textContent = S.tab === 'add' && editing ? 'Cancel' : 'Clear';
         $('#interior-hint').hidden = !editing;
+        // the house / apartment switch is only for new ones; an existing house keeps its type
+        $('#type-block').hidden = editing;
+        document.querySelectorAll('#add-type button').forEach((b) => b.classList.toggle('on', (b.dataset.type === 'apartment') === S.add.apartment));
+        $('#apartment-block').hidden = !S.add.apartment;
+        $('#entrances-block').hidden = S.add.apartment;
         renderAccess();
         $('#tabs .tab[data-tab="add"] span').textContent = editing ? 'Edit house' : 'Add house';
     }
@@ -148,7 +167,7 @@
 
     function renderSubtitle() {
         const owned = S.houses.filter((h) => ownerLabel(h)).length;
-        $('#subtitle').textContent = `${plural(S.houses.length, 'house', 'houses')} · ${owned} owned`;
+        $('#subtitle').textContent = `${plural(S.houses.length, 'house', 'houses')} · ${owned} owned · ${plural(S.buildings.length, 'building', 'buildings')}`;
     }
 
     function chip(cls, iconName, text) {
@@ -176,7 +195,7 @@
         const metaRow = el('div', 'house-meta');
         metaRow.append(
             meta('home', '', h.interiorName || 'No interior'),
-            meta('door', '', entranceCount(h)),
+            meta(isApartment(h) ? 'building' : 'door', '', doorLabel(h)),
             meta('user', '', owner || 'Nobody'),
         );
         main.appendChild(metaRow);
@@ -235,7 +254,7 @@
 
         const q = $('#search').value.trim().toLowerCase();
         const shown = S.houses.filter((h) => !q
-            || [h.name, h.interiorName, h.owner, h.ownerName, `#${h.id}`].join(' ').toLowerCase().includes(q));
+            || [h.name, h.interiorName, h.buildingName, h.owner, h.ownerName, `#${h.id}`].join(' ').toLowerCase().includes(q));
         if (!shown.length) {
             const e = el('div', 'empty');
             e.append(el('b', null, 'No matches'), document.createTextNode('No house matches that search.'));
@@ -250,7 +269,7 @@
     // ------------------------------------------------------------------ delete
 
     function askDelete(h) {
-        S.pendingDelete = h.id;
+        S.pendingDelete = { kind: 'house', id: h.id };
         const owner = ownerLabel(h);
         const text = $('#modal-text');
         text.textContent = '';
@@ -262,6 +281,21 @@
         if (owner) {
             text.append(document.createTextNode(' It is currently owned by '), el('b', null, owner), document.createTextNode('.'));
         }
+        $('#modal-title').textContent = 'Delete house?';
+        $('#modal').hidden = false;
+        $('#modal-cancel').focus();
+    }
+
+    function askDeleteBuilding(b) {
+        S.pendingDelete = { kind: 'building', id: b.id };
+        const text = $('#modal-text');
+        text.textContent = '';
+        text.append(
+            document.createTextNode('This removes '),
+            el('b', null, b.name || `Building ${b.id}`),
+            document.createTextNode(` (#${b.id}) for good.`),
+        );
+        $('#modal-title').textContent = 'Delete building?';
         $('#modal').hidden = false;
         $('#modal-cancel').focus();
     }
@@ -273,10 +307,14 @@
 
     $('#modal-cancel').addEventListener('click', closeModal);
     $('#modal-ok').addEventListener('click', () => {
-        const id = S.pendingDelete;
+        const pending = S.pendingDelete;
         closeModal();
-        if (id === null) return;
-        act(post('deleteHouse', { house: id }), 'House deleted', 'Could not delete the house');
+        if (!pending) return;
+        if (pending.kind === 'building') {
+            act(post('deleteBuilding', { building: pending.id }), 'Building deleted', 'Could not delete the building', null, 'buildings');
+        } else {
+            act(post('deleteHouse', { house: pending.id }), 'House deleted', 'Could not delete the house');
+        }
     });
 
     // ------------------------------------------------------------------ add house
@@ -438,14 +476,90 @@
             const e = list.find((x) => Number(x.exit) === i + 1);
             entrances.push(e ? { x: round(e.x), y: round(e.y), z: round(e.z), w: round(e.w || 0) } : { x: '', y: '', z: '', w: '' });
         }
-        S.add = { name: h.name || '', interior: h.interior, entrances, editing: h.id };
+        S.add = {
+            ...blankAdd(),
+            name: h.name || '',
+            interior: h.interior,
+            entrances: isApartment(h) ? [] : entrances,   // an apartment has no entrances of its own
+            editing: h.id,
+            apartment: isApartment(h),
+            building: isApartment(h) ? h.building : null,
+            floor: isApartment(h) ? h.floor : null,
+        };
         $('#add-name').value = S.add.name;
         AC.owner = '';
         AC.key = '';
         renderInteriors();
         renderEntrances();
+        renderApartment();
         selectTab('add');
     }
+
+    // The House / Apartment switch (new houses only).
+    document.querySelectorAll('#add-type button').forEach((b) => b.addEventListener('click', () => {
+        S.add.apartment = b.dataset.type === 'apartment';
+        updateAddLabels();
+        renderApartment();
+        refreshForm();
+    }));
+
+    // The building and floor selects of an apartment. The floors are 1 to the number of floors of the chosen building.
+    function renderApartment() {
+        const buildingSel = $('#add-building');
+        const floorSel = $('#add-floor');
+        const hint = $('#apartment-hint');
+        buildingSel.textContent = '';
+        floorSel.textContent = '';
+        hint.textContent = '';
+        if (!S.add.apartment) return;
+
+        if (!S.buildings.length) {
+            const none = el('option', null, 'No buildings yet');
+            none.value = '';
+            buildingSel.appendChild(none);
+            buildingSel.disabled = true;
+            floorSel.disabled = true;
+            hint.append(document.createTextNode('Create a building in the '), el('b', null, 'Buildings'), document.createTextNode(' tab first: an apartment belongs to a building.'));
+            return;
+        }
+        buildingSel.disabled = false;
+
+        const pick = el('option', null, 'Pick a building');
+        pick.value = '';
+        buildingSel.appendChild(pick);
+        S.buildings.forEach((b) => {
+            const o = el('option', null, `${b.name || 'Building ' + b.id}  —  ${plural(Number(b.floors) || 0, 'floor', 'floors')}`);
+            o.value = String(b.id);
+            buildingSel.appendChild(o);
+        });
+        buildingSel.value = S.add.building === null ? '' : String(S.add.building);
+
+        const b = buildingById(S.add.building);
+        floorSel.disabled = !b;
+        const floorPick = el('option', null, b ? 'Pick a floor' : 'Pick a building first');
+        floorPick.value = '';
+        floorSel.appendChild(floorPick);
+        if (b) {
+            for (let f = 1; f <= Number(b.floors); f++) {
+                const o = el('option', null, `Floor ${f}`);
+                o.value = String(f);
+                floorSel.appendChild(o);
+            }
+            floorSel.value = S.add.floor === null ? '' : String(S.add.floor);
+            hint.append(el('b', null, b.name || `Building ${b.id}`), document.createTextNode(` has ${plural(Number(b.floors) || 0, 'floor', 'floors')}. The apartment uses the entrance of the building: players enter and leave through its door.`));
+        }
+    }
+
+    $('#add-building').addEventListener('change', (e) => {
+        S.add.building = e.target.value === '' ? null : Number(e.target.value);
+        S.add.floor = null;   // the floors belong to the building
+        renderApartment();
+        refreshForm();
+    });
+    $('#add-floor').addEventListener('change', (e) => {
+        S.add.floor = e.target.value === '' ? null : Number(e.target.value);
+        refreshForm();
+    });
 
     function pickInterior(id) {
         S.add.interior = id;
@@ -483,77 +597,145 @@
         );
 
         S.add.entrances.forEach((ent, i) => {
-            const card = el('div', 'entrance');
-            const head = el('div', 'entrance-head');
-            const label = el('div', 'entrance-label');
-            label.append(icon('pin'), document.createTextNode(`Entrance ${i + 1}`), el('span', `entrance-tag${i === 0 ? ' required' : ''}`, i === 0 ? 'Required' : 'Optional'));
-            const use = el('button', 'btn-sm');
-            use.type = 'button';
-            use.append(icon('pin'), document.createTextNode('Use my position'));
-            const actions = el('div', 'entrance-actions');
-            if (i > 0) {
-                const clear = el('button', 'btn-sm danger');
-                clear.type = 'button';
-                clear.title = 'Leave this exit without an entrance';
-                clear.appendChild(icon('x'));
-                clear.addEventListener('click', () => {
-                    COORD_KEYS.forEach((k) => { ent[k] = ''; inputs[k].value = ''; });
-                    refreshForm();
-                });
-                actions.appendChild(clear);
-            }
-            actions.appendChild(use);
-            head.append(label, actions);
-            card.appendChild(head);
-
-            const grid = el('div', 'coords');
-            const inputs = {};
-            COORD_KEYS.forEach((k) => {
-                const cell = el('label', 'coord');
-                cell.appendChild(el('span', null, k === 'w' ? 'H' : k.toUpperCase()));
-                const input = el('input', 'num');
-                input.type = 'text';
-                input.inputMode = 'decimal';
-                input.autocomplete = 'off';
-                input.spellcheck = false;
-                input.placeholder = k === 'w' ? '0.0' : '';
-                input.value = ent[k];
-                input.addEventListener('input', () => {
-                    ent[k] = input.value;
-                    refreshForm();
-                });
-                input.addEventListener('paste', (e) => {
-                    // the letters go first so the 4 of "vector4(...)" is not read as a coordinate
-                    const text = ((e.clipboardData || window.clipboardData).getData('text') || '').replace(/[a-z_]+\d*/gi, ' ');
-                    const nums = text.match(/-?\d+(?:\.\d+)?/g);
-                    if (!nums || nums.length < 3) return;
-                    e.preventDefault();
-                    COORD_KEYS.forEach((key, n) => {
-                        ent[key] = nums[n] !== undefined ? nums[n] : (key === 'w' ? '0' : ent[key]);
-                        inputs[key].value = ent[key];
-                    });
-                    refreshForm();
-                });
-                inputs[k] = input;
-                cell.appendChild(input);
-                grid.appendChild(cell);
-            });
-            card.appendChild(grid);
-
-            use.addEventListener('click', () => {
-                post('getPosition').then((p) => {
-                    if (!p || !Number.isFinite(Number(p.x))) { toast('Could not read your position', 'err'); return; }
-                    COORD_KEYS.forEach((k) => {
-                        ent[k] = (Math.round(Number(p[k] || 0) * 100) / 100).toString();
-                        inputs[k].value = ent[k];
-                    });
-                    refreshForm();
-                });
-            });
-
-            card._ent = ent;
-            wrap.appendChild(card);
+            wrap.appendChild(entranceCard(ent, `Entrance ${i + 1}`, i === 0 ? 'Required' : 'Optional', i === 0,
+                i > 0 ? 'Leave this exit without an entrance' : null));
         });
+    }
+
+    // A card with the x, y, z and heading boxes of one { x, y, z, w } (typed strings), a Use my position button and, when
+    // `clearTitle` is given, an X that empties the card. Used for the entrances of a house and the entrance of a building.
+    function entranceCard(ent, title, tag, required, clearTitle) {
+        const card = el('div', 'entrance');
+        const head = el('div', 'entrance-head');
+        const label = el('div', 'entrance-label');
+        label.append(icon('pin'), document.createTextNode(title), el('span', `entrance-tag${required ? ' required' : ''}`, tag));
+        const use = el('button', 'btn-sm');
+        use.type = 'button';
+        use.append(icon('pin'), document.createTextNode('Use my position'));
+        const actions = el('div', 'entrance-actions');
+        const inputs = {};
+        if (clearTitle) {
+            const clear = el('button', 'btn-sm danger');
+            clear.type = 'button';
+            clear.title = clearTitle;
+            clear.appendChild(icon('x'));
+            clear.addEventListener('click', () => {
+                COORD_KEYS.forEach((k) => { ent[k] = ''; inputs[k].value = ''; });
+                refreshForm();
+            });
+            actions.appendChild(clear);
+        }
+        actions.appendChild(use);
+        head.append(label, actions);
+        card.appendChild(head);
+
+        const grid = el('div', 'coords');
+        COORD_KEYS.forEach((k) => {
+            const cell = el('label', 'coord');
+            cell.appendChild(el('span', null, k === 'w' ? 'H' : k.toUpperCase()));
+            const input = el('input', 'num');
+            input.type = 'text';
+            input.inputMode = 'decimal';
+            input.autocomplete = 'off';
+            input.spellcheck = false;
+            input.placeholder = k === 'w' ? '0.0' : '';
+            input.value = ent[k];
+            input.addEventListener('input', () => {
+                ent[k] = input.value;
+                refreshForm();
+            });
+            input.addEventListener('paste', (e) => {
+                // the letters go first so the 4 of "vector4(...)" is not read as a coordinate
+                const text = ((e.clipboardData || window.clipboardData).getData('text') || '').replace(/[a-z_]+\d*/gi, ' ');
+                const nums = text.match(/-?\d+(?:\.\d+)?/g);
+                if (!nums || nums.length < 3) return;
+                e.preventDefault();
+                COORD_KEYS.forEach((key, n) => {
+                    ent[key] = nums[n] !== undefined ? nums[n] : (key === 'w' ? '0' : ent[key]);
+                    inputs[key].value = ent[key];
+                });
+                refreshForm();
+            });
+            inputs[k] = input;
+            cell.appendChild(input);
+            grid.appendChild(cell);
+        });
+        card.appendChild(grid);
+
+        use.addEventListener('click', () => {
+            post('getPosition').then((p) => {
+                if (!p || !Number.isFinite(Number(p.x))) { toast('Could not read your position', 'err'); return; }
+                COORD_KEYS.forEach((k) => {
+                    ent[k] = (Math.round(Number(p[k] || 0) * 100) / 100).toString();
+                    inputs[k].value = ent[k];
+                });
+                refreshForm();
+            });
+        });
+
+        card._ent = ent;
+        return card;
+    }
+
+    // ------------------------------------------------------------------ buildings
+
+    function buildingRow(b) {
+        const row = el('div', 'house');
+        row.appendChild(el('div', 'house-id', `#${b.id}`));
+
+        const main = el('div', 'house-main');
+        main.appendChild(el('div', 'house-name', b.name || `Building ${b.id}`));
+        const metaRow = el('div', 'house-meta');
+        metaRow.append(
+            meta('building', '', plural(Number(b.floors) || 0, 'floor', 'floors')),
+            meta('home', '', plural(Number(b.apartments) || 0, 'apartment', 'apartments')),
+        );
+        main.appendChild(metaRow);
+        row.appendChild(main);
+
+        const actions = el('div', 'house-actions');
+        const del = el('button', 'btn-sm danger');
+        del.type = 'button';
+        const used = Number(b.apartments) > 0;
+        del.title = used ? 'Delete its apartments first' : 'Delete building';
+        del.disabled = used;
+        del.appendChild(icon('trash'));
+        del.addEventListener('click', () => askDeleteBuilding(b));
+        actions.appendChild(del);
+        row.appendChild(actions);
+        return row;
+    }
+
+    function renderBuildings() {
+        const list = $('#building-list');
+        list.textContent = '';
+        if (!S.buildings.length) {
+            const e = el('div', 'empty');
+            e.append(el('b', null, 'No buildings yet'), document.createTextNode('Fill in the form below to create the first one.'));
+            list.appendChild(e);
+        } else {
+            S.buildings.forEach((b) => list.appendChild(buildingRow(b)));
+        }
+    }
+
+    // The entrance card of the new-building form. Rebuilt only when the form is cleared, so typing is never interrupted.
+    function renderNewBuilding() {
+        const wrap = $('#nb-entrance');
+        wrap.textContent = '';
+        wrap.appendChild(entranceCard(S.nb.entrance, 'Entrance', 'Required', true, null));
+    }
+
+    $('#nb-name').addEventListener('input', (e) => { S.nb.name = e.target.value; refreshForm(); });
+    $('#nb-floors').addEventListener('input', (e) => { S.nb.floors = e.target.value; refreshForm(); });
+
+    const MAX_FLOORS = 200;
+    const floorsValid = (v) => /^\d+$/.test(String(v).trim()) && Number(v) >= 1 && Number(v) <= MAX_FLOORS;
+
+    function resetBuilding() {
+        S.nb = blankBuilding();
+        $('#nb-name').value = '';
+        $('#nb-floors').value = '';
+        renderNewBuilding();
     }
 
     const filled = (v) => String(v).trim() !== '' && Number.isFinite(Number(v));
@@ -593,7 +775,7 @@
         const owner = ownerLabel(h);
         info.append(
             meta('home', '', h.interiorName || 'No interior'),
-            meta('door', '', entranceCount(h)),
+            meta(isApartment(h) ? 'building' : 'door', '', doorLabel(h)),
             meta('user', owner ? 'Owner' : '', owner || 'Nobody'),
         );
     }
@@ -645,7 +827,16 @@
 
     function refreshForm() {
         const submit = $('#submit');
-        if (S.tab === 'add') {
+        if (S.tab === 'add' && S.add.apartment) {
+            // an apartment needs a name, an interior (already fixed when editing), a building and one of its floors
+            const ready = S.add.name.trim() && S.add.interior && S.add.building !== null && S.add.floor !== null;
+            submit.disabled = S.busy || !ready;
+            $('#status').textContent = !S.add.interior ? 'Pick an interior'
+                : S.add.building === null ? 'Pick a building'
+                : S.add.floor === null ? 'Pick a floor'
+                : !S.add.name.trim() ? 'Enter a name'
+                : `Floor ${S.add.floor}`;
+        } else if (S.tab === 'add') {
             // Entrance 1 has to be complete; every other one is either complete or left empty (half filled blocks the form)
             const list = S.add.entrances;
             const total = list.length;
@@ -660,6 +851,14 @@
                 : partial === 0 && entranceEmpty(list[0]) ? 'Entrance 1 is required'
                 : partial !== -1 ? `Finish or clear entrance ${partial + 1}`
                 : `${done} of ${plural(total, 'entrance', 'entrances')} set`;
+        } else if (S.tab === 'buildings') {
+            document.querySelectorAll('#nb-entrance .entrance').forEach((c) => c.classList.toggle('done', entranceDone(c._ent)));
+            const ready = S.nb.name.trim() && floorsValid(S.nb.floors) && entranceDone(S.nb.entrance) && filled(S.nb.entrance.x);
+            submit.disabled = S.busy || !ready;
+            $('#status').textContent = !S.nb.name.trim() ? 'Enter a name'
+                : !floorsValid(S.nb.floors) ? `Floors: a whole number from 1 to ${MAX_FLOORS}`
+                : !entranceDone(S.nb.entrance) ? 'Set the entrance'
+                : plural(Number(S.nb.floors), 'floor', 'floors');
         } else if (S.tab === 'sell') {
             $('#status').textContent = '';
             submit.disabled = S.busy || !houseById(S.sell.house) || !playerId() || S.lookup.state === 'err' || S.lookup.state === 'loading';
@@ -667,10 +866,11 @@
     }
 
     function resetAdd() {
-        S.add = { name: '', interior: null, entrances: [], editing: null };
+        S.add = blankAdd();
         $('#add-name').value = '';
         renderInteriors();
         renderEntrances();
+        renderApartment();
         updateAddLabels();
     }
 
@@ -687,6 +887,8 @@
             const wasEditing = S.add.editing !== null;
             resetAdd();
             if (wasEditing) { selectTab('houses'); return; }   // Cancel goes back to the list
+        } else if (S.tab === 'buildings') {
+            resetBuilding();
         } else if (S.tab === 'sell') {
             resetSell();
         }
@@ -696,6 +898,18 @@
     $('#submit').addEventListener('click', () => {
         if ($('#submit').disabled) return;
         if (S.tab === 'add') {
+            const name = S.add.name.trim();
+            if (S.add.apartment) {
+                // an apartment sends its building and floor, the entrance is the door of the building
+                if (S.add.editing !== null) {
+                    act(post('updateHouse', { house: S.add.editing, name, building: S.add.building, floor: S.add.floor }),
+                        'Apartment saved', 'Could not save the apartment', resetAdd);
+                } else {
+                    act(post('createHouse', { name, interior: S.add.interior, apartment: true, building: S.add.building, floor: S.add.floor }),
+                        'Apartment created', 'Could not create the apartment', resetAdd);
+                }
+                return;
+            }
             // `exit` is the exit of the interior the entrance leads to; the exits left empty are not sent
             const entrances = [];
             S.add.entrances.forEach((e, i) => {
@@ -703,20 +917,26 @@
                 entrances.push({ exit: i + 1, x: Number(e.x), y: Number(e.y), z: Number(e.z), w: String(e.w).trim() === '' ? 0 : Number(e.w) });
             });
             if (S.add.editing !== null) {
-                act(post('updateHouse', { house: S.add.editing, name: S.add.name.trim(), entrances }),
+                act(post('updateHouse', { house: S.add.editing, name, entrances }),
                     'House saved', 'Could not save the house', resetAdd);
             } else {
-                act(post('createHouse', { name: S.add.name.trim(), interior: S.add.interior, entrances }),
+                act(post('createHouse', { name, interior: S.add.interior, entrances }),
                     'House created', 'Could not create the house', resetAdd);
             }
+        } else if (S.tab === 'buildings') {
+            const e = S.nb.entrance;
+            const entrance = { x: Number(e.x), y: Number(e.y), z: Number(e.z), w: String(e.w).trim() === '' ? 0 : Number(e.w) };
+            act(post('createBuilding', { name: S.nb.name.trim(), floors: Number(S.nb.floors), entrance }),
+                'Building created', 'Could not create the building', resetBuilding, 'buildings');
         } else if (S.tab === 'sell') {
             act(post('sellHouse', { house: S.sell.house, player: playerId() }),
                 'House sold', 'Could not sell the house', resetSell);
         }
     });
 
-    // Waits for the Lua reply { ok, error?, message? }. On success: toast, run `after`, reload the data and go to the list.
-    function act(request, okText, failText, after) {
+    // Waits for the Lua reply { ok, error?, message? }. On success: toast, run `after`, reload the data and go to a tab
+    // (the houses list unless `tab` says otherwise).
+    function act(request, okText, failText, after, tab) {
         S.busy = true;
         refreshForm();
         return request.then((res) => {
@@ -724,7 +944,7 @@
             if (res && res.ok) {
                 toast(res.message || okText, 'ok');
                 if (after) after();
-                refreshData().then(() => selectTab('houses'));
+                refreshData().then(() => selectTab(tab || 'houses'));
             } else {
                 toast((res && res.error) || failText, 'err');
                 refreshForm();
@@ -736,19 +956,27 @@
 
     function setData(msg) {
         S.interiors = toList(msg.interiors);
+        S.buildings = toList(msg.buildings);
         S.houses = toList(msg.houses);
         if (S.add.editing !== null && !houseById(S.add.editing)) {
             // the house being edited was deleted meanwhile
-            S.add = { name: '', interior: null, entrances: [], editing: null };
+            S.add = blankAdd();
             $('#add-name').value = '';
         } else if (S.add.interior !== null && !interiorById(S.add.interior)) {
             S.add.interior = null;
             S.add.entrances = [];
         }
+        if (S.add.building !== null && !buildingById(S.add.building)) {
+            // the chosen building is gone
+            S.add.building = null;
+            S.add.floor = null;
+        }
         updateAddLabels();
         renderHouses();
+        renderBuildings();
         renderInteriors();
         renderEntrances();
+        renderApartment();
         if (S.tab === 'sell') renderSellSelect();
         refreshForm();
     }
@@ -775,9 +1003,13 @@
     function open(msg) {
         if (msg.accent) setAccent(msg.accent);
         S.busy = false;
-        S.add = { name: '', interior: null, entrances: [], editing: null };
+        S.add = blankAdd();
+        S.nb = blankBuilding();
         S.sell = { house: null, player: '' };
         $('#add-name').value = '';
+        $('#nb-name').value = '';
+        $('#nb-floors').value = '';
+        renderNewBuilding();
         $('#sell-player').value = '';
         $('#search').value = '';
         closeModal();

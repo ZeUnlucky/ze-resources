@@ -26,6 +26,7 @@ dependencies {
 
 server_scripts {
     '@oxmysql/lib/MySQL.lua',
+    'server/buildings.lua',
     'server/houses.lua',
     'server/server.lua',
     'server/menu.lua',

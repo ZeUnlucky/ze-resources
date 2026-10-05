@@ -55,4 +55,3 @@ Config.Interiors = {
         clothes = vector3(-167.33, 487.8, 133.84)
     }
 }
-

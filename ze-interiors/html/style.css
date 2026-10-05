@@ -398,6 +398,42 @@ input { user-select: text; }
 
 .btn-sm:disabled { opacity: 0.45; pointer-events: none; }
 
+.field-gap { margin-top: 0.7rem; }
+
+/* ---------- House / Apartment switch ---------- */
+
+.seg {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.35rem;
+    padding: 0.3rem;
+    border: 1px solid var(--line);
+    border-radius: 1rem;
+    background: rgba(var(--wash-rgb), 0.03);
+}
+.seg button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    height: 2.5rem;
+    border: 1px solid transparent;
+    border-radius: 0.75rem;
+    background: transparent;
+    color: var(--muted);
+    font: 600 0.85rem/1 var(--display);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    transition: color 0.15s, background 0.15s, border-color 0.15s;
+}
+.seg button:hover { color: var(--text); }
+.seg button.on {
+    border-color: rgba(var(--accent-rgb), 0.45);
+    background: rgba(var(--accent-rgb), 0.12);
+    color: var(--accent);
+}
+.seg .icon { width: 1.05rem; height: 1.05rem; }
+
 /* ---------- Lock, owner and keys (edit form) ---------- */
 
 .access-row {

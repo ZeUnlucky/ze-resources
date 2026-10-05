@@ -72,6 +72,9 @@ local function buildHouses()
             id = id,
             name = house.name,
             keyholders = keyholders,
+            building = house.building,   -- nil for a normal house
+            buildingName = house.building and Shared.Buildings[house.building].name or nil,
+            floor = house.floor,
             interior = house.interiorId,
             interiorName = house.interior.name,
             entrances = #entranceList,
@@ -86,9 +89,26 @@ local function buildHouses()
     return list
 end
 
+-- { { id, name, floors, apartments = number of apartments in it, entrance = { x, y, z, w } } }
+local function buildBuildings()
+    local list = {}
+    for id, building in pairs(Shared.Buildings) do
+        local e = building.entrance
+        list[#list + 1] = {
+            id = id,
+            name = building.name,
+            floors = building.floors,
+            apartments = Buildings.Count(id),
+            entrance = { x = e.x, y = e.y, z = e.z, w = e.w },
+        }
+    end
+    table.sort(list, function(a, b) return a.id < b.id end)
+    return list
+end
+
 -- Called when the menu opens and again after every change. Answers nothing without permission.
 register('ze-interiors:menu:getData', nil, function()
-    return { interiors = buildInteriors(), houses = buildHouses() }
+    return { interiors = buildInteriors(), buildings = buildBuildings(), houses = buildHouses() }
 end)
 
 -- Shows the buyer's name under the Player ID field. data = { id = server id }
@@ -131,8 +151,23 @@ local function parseEntrances(interior, sent)
     return entrances
 end
 
+-- The building and floor of an apartment from the UI, or nil and an error text. The floor has to be one of the building's floors.
+local function parseApartment(data)
+    local buildingId = number(data.building)
+    local building = buildingId and Shared.Buildings[buildingId]
+    if not building then return nil, 'An apartment needs a building that exists' end
+
+    local floor = number(data.floor)
+    if not floor or floor ~= math.floor(floor) or floor < 1 or floor > building.floors then
+        return nil, ('%s has %d floors, so the floor has to be 1 to %d'):format(building.name, building.floors, building.floors)
+    end
+    return buildingId, floor
+end
+
 -- Add house. data = { name = string, interior = interior id, entrances = { { exit, x, y, z, w }, ... } }
 -- `exit` is the exit of the interior the entrance leads to. Exit 1 is required, every other exit is optional (just leave it out).
+-- An apartment sends { name, interior, apartment = true, building = building id, floor = number } instead of the entrances:
+-- it belongs to a building on one of its floors and its entrance is the door of that building.
 register('ze-interiors:menu:createHouse', NO_PERMISSION, function(_, data)
     if type(data) ~= 'table' then return { ok = false, error = 'Nothing was sent' } end
 
@@ -143,16 +178,22 @@ register('ze-interiors:menu:createHouse', NO_PERMISSION, function(_, data)
     local interior = interiorId and Config.Interiors[interiorId]
     if not interior then return { ok = false, error = 'That interior does not exist' } end
 
-    local entrances, err = parseEntrances(interior, data.entrances)
-    if not entrances then return { ok = false, error = err } end
+    local entrances, err, building, floor
+    if data.apartment == true then
+        building, floor = parseApartment(data)
+        if not building then return { ok = false, error = floor } end   -- on a failure the second value is the error text
+    else
+        entrances, err = parseEntrances(interior, data.entrances)
+        if not entrances then return { ok = false, error = err } end
+    end
 
-    local id, createErr = Houses.Create(name, interiorId, entrances)
+    local id, createErr = Houses.Create(name, interiorId, entrances, building, floor)
     if not id then return { ok = false, error = createErr } end
     return { ok = true, message = ('House #%d "%s" created'):format(id, name) }
 end)
 
 -- Edit house. data = { house = house id, name = string, entrances = { { exit, x, y, z, w }, ... } }
--- Same rules for the entrances as createHouse. The interior, owner, keys and lock are not changed: the interior stays because
+-- Same rules for the entrances as createHouse. For an apartment send building and floor instead of the entrances. The interior, owner, keys and lock are not changed: the interior stays because
 -- people can be standing inside it. The entrances sent replace the old ones, so an exit that is left out loses its entrance.
 register('ze-interiors:menu:updateHouse', NO_PERMISSION, function(_, data)
     if type(data) ~= 'table' then return { ok = false, error = 'Nothing was sent' } end
@@ -164,12 +205,55 @@ register('ze-interiors:menu:updateHouse', NO_PERMISSION, function(_, data)
     local name, nameErr = parseName(data.name)
     if not name then return { ok = false, error = nameErr } end
 
-    local entrances, err = parseEntrances(house.interior, data.entrances)
-    if not entrances then return { ok = false, error = err } end
+    local entrances, err, building, floor
+    if house.building then
+        -- an apartment: data = { house, name, building, floor } and no entrances
+        building, floor = parseApartment(data)
+        if not building then return { ok = false, error = floor } end
+    else
+        entrances, err = parseEntrances(house.interior, data.entrances)
+        if not entrances then return { ok = false, error = err } end
+    end
 
-    local ok, updateErr = Houses.Update(id, name, entrances)
+    local ok, updateErr = Houses.Update(id, name, entrances, building, floor)
     if not ok then return { ok = false, error = updateErr } end
     return { ok = true, message = ('"%s" saved'):format(name) }
+end)
+
+-- ---------------------------------------------------------------- buildings
+
+-- Add building. data = { name = string, floors = number of floors (1 to Buildings.MaxFloors), entrance = { x, y, z, w } }
+-- The entrance is the door the apartments of the building share.
+register('ze-interiors:menu:createBuilding', NO_PERMISSION, function(_, data)
+    if type(data) ~= 'table' then return { ok = false, error = 'Nothing was sent' } end
+
+    local name, nameErr = parseName(data.name)
+    if not name then return { ok = false, error = nameErr } end
+
+    local floors = number(data.floors)
+    if not floors or floors ~= math.floor(floors) or floors < 1 or floors > Buildings.MaxFloors then
+        return { ok = false, error = ('The number of floors must be a whole number from 1 to %d'):format(Buildings.MaxFloors) }
+    end
+
+    local e = type(data.entrance) == 'table' and data.entrance or {}
+    local x, y, z = number(e.x), number(e.y), number(e.z)
+    if not (x and y and z) then return { ok = false, error = 'The entrance has no valid coordinates' } end
+
+    local id, err = Buildings.Create(name, floors, vector4(x + 0.0, y + 0.0, z + 0.0, (number(e.w) or 0.0) + 0.0))
+    if not id then return { ok = false, error = err } end
+    return { ok = true, message = ('Building #%d "%s" created'):format(id, name) }
+end)
+
+-- Delete a building. data = { building = building id }. Refused while it still has apartments.
+register('ze-interiors:menu:deleteBuilding', NO_PERMISSION, function(_, data)
+    local id = type(data) == 'table' and number(data.building) or nil
+    local building = id and Shared.Buildings[id]
+    if not building then return { ok = false, error = 'That building does not exist' } end
+
+    local name = building.name
+    local ok, err = Buildings.Delete(id)
+    if not ok then return { ok = false, error = err } end
+    return { ok = true, message = ('"%s" deleted'):format(name) }
 end)
 
 -- ---------------------------------------------------------------- access (owner, keys, lock)

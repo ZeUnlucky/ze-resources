@@ -1,9 +1,3 @@
--- Keys: the owner of a house hands a key to a friend with /givekeys and takes it back with /takekeys.
--- They are commands, not part of the house manager menu.
---   /givekeys [player id] [house id]
---   /takekeys [player id | all] [house id]
--- The house id is optional. Without it the house is the one the owner is standing in or at the door of, or their only house.
--- The friend is saved in the keyholders column (Houses.AddKeyholder / RemoveKeyholders) and can lock and unlock the doors like the owner.
 local QBCore = exports['qb-core']:GetCoreObject()
 
 local GIVE_DISTANCE = 5.0   -- how close the friend has to stand to the owner

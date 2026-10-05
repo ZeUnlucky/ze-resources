@@ -59,7 +59,14 @@
         { id: 3, name: 'Grove Street Flat', interior: 2, interiorName: 'Low End Apartment', entrances: 1, exits: 1, entranceList: [{ exit: 1, x: 1, y: 2, z: 3, w: 4 }], owner: 'XYZ98765', ownerName: 'Dana Holloway', locked: false },
         { id: 4, name: 'Mirror Park Garage Flat', interior: 4, interiorName: 'Garage Flat', entrances: 2, exits: 2, entranceList: [{ exit: 1, x: 5, y: 6, z: 7, w: 8 }, { exit: 2, x: 9, y: 9, z: 9, w: 9 }], owner: '', locked: true },
     ];
-    let nextId = 5;
+    let buildings = [
+        { id: 1, name: 'Alta Street Tower', floors: 5, apartments: 1, entrance: { x: -270, y: -960, z: 31, w: 205 } },
+        { id: 2, name: 'Integrity Way Block', floors: 3, apartments: 0, entrance: { x: -47, y: -585, z: 38, w: 70 } },
+    ];
+    houses.push({ id: 5, name: '4B', interior: 2, interiorName: 'Low End Apartment', building: 1, buildingName: 'Alta Street Tower', floor: 4, entrances: 1, exits: 1, entranceList: [{ exit: 1, x: -270, y: -960, z: 31, w: 205 }], owner: '', locked: false });
+    let nextId = 6;
+    let nextBuilding = 3;
+    const recount = () => { buildings = buildings.map((b) => ({ ...b, apartments: houses.filter((h) => h.building === b.id).length })); };
 
     function log(text) {
         lines.unshift(text);
@@ -74,7 +81,18 @@
     function mockPost(name, d) {
         log(name + ' ' + JSON.stringify(d));
         switch (name) {
-            case 'getData': return { interiors, houses };
+            case 'getData': recount(); return { interiors, buildings, houses };
+            case 'createBuilding': {
+                if (fail) return { ok: false, error: 'Not implemented yet' };
+                buildings = buildings.concat({ id: nextBuilding++, name: d.name, floors: d.floors, apartments: 0, entrance: d.entrance });
+                return { ok: true, message: 'Building #' + (nextBuilding - 1) + ' "' + d.name + '" created' };
+            }
+            case 'deleteBuilding': {
+                const b = buildings.find((x) => x.id === d.building);
+                if (b && houses.some((h) => h.building === b.id)) return { ok: false, error: 'Delete the apartments of this building first' };
+                buildings = buildings.filter((x) => x.id !== d.building);
+                return { ok: true };
+            }
             case 'getPosition': return { x: 92.67 + Math.random(), y: 49.22, z: 73.5, w: 73.0 };
             case 'setWaypoint': {
                 const h = houses.find((x) => String(x.id) === String(d.house));
@@ -87,12 +105,22 @@
             case 'createHouse': {
                 if (fail) return { ok: false, error: 'Not implemented yet' };
                 const it = interiors.find((i) => i.id === d.interior);
+                if (d.apartment) {
+                    const b = buildings.find((x) => x.id === d.building);
+                    if (!b || !(d.floor >= 1 && d.floor <= b.floors)) return { ok: false, error: 'Bad building or floor' };
+                    houses = houses.concat({ id: nextId++, name: d.name, interior: it.id, interiorName: it.name, building: b.id, buildingName: b.name, floor: d.floor, entrances: 1, exits: it.exits, entranceList: [{ exit: 1, ...b.entrance }], owner: '', locked: false });
+                    return { ok: true };
+                }
                 houses = houses.concat({ id: nextId++, name: d.name, interior: it.id, interiorName: it.name, entrances: d.entrances.length, exits: it.exits, entranceList: d.entrances, owner: '', locked: false });
                 return { ok: true };
             }
             case 'updateHouse': {
                 if (fail) return { ok: false, error: 'Not implemented yet' };
-                houses = houses.map((h) => (String(h.id) === String(d.house) ? { ...h, name: d.name, entrances: d.entrances.length, entranceList: d.entrances } : h));
+                houses = houses.map((h) => {
+                    if (String(h.id) !== String(d.house)) return h;
+                    if (h.building) { const b = buildings.find((x) => x.id === d.building); return { ...h, name: d.name, building: b.id, buildingName: b.name, floor: d.floor }; }
+                    return { ...h, name: d.name, entrances: d.entrances.length, entranceList: d.entrances };
+                });
                 return { ok: true, message: '"' + d.name + '" saved' };
             }
             case 'setLocked':
@@ -132,8 +160,8 @@
     nui.addEventListener('load', () => { nui.contentWindow.ZE_POST = mockPost; });
 
     const scenes = {
-        open: () => send({ action: 'open', interiors, houses, accent: '#ff7a1a' }),
-        empty: () => { houses = []; send({ action: 'open', interiors, houses }); },
+        open: () => { recount(); send({ action: 'open', interiors, buildings, houses, accent: '#ff7a1a' }); },
+        empty: () => { houses = []; buildings = []; send({ action: 'open', interiors, buildings, houses }); },
     };
 
     document.getElementById('ctl').addEventListener('click', (e) => {

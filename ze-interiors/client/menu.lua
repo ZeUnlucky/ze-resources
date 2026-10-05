@@ -13,6 +13,7 @@ local function openMenu()
         SendNUIMessage({
             action = 'open',
             interiors = data.interiors,
+            buildings = data.buildings,
             houses = data.houses
         })
         SetNuiFocus(true, true)
@@ -68,12 +69,26 @@ RegisterNUICallback('lookupPlayer', function(data, cb)
 end)
 
 -- Add house. data = { name = string, interior = interior id, entrances = { { exit, x, y, z, w }, ... } }
+-- An apartment sends { name, interior, apartment = true, building = building id, floor = number } instead of the entrances.
 -- Reply: { ok = bool, error? = string, message? = string }
 RegisterNUICallback('createHouse', function(data, cb)
     relay('ze-interiors:menu:createHouse', data, cb, { ok = false, error = 'No answer from the server' })
 end)
 
+-- Add building. data = { name = string, floors = number, entrance = { x, y, z, w } }
+-- Reply: { ok = bool, error? = string, message? = string }
+RegisterNUICallback('createBuilding', function(data, cb)
+    relay('ze-interiors:menu:createBuilding', data, cb, { ok = false, error = 'No answer from the server' })
+end)
+
+-- Delete a building. data = { building = building id }
+-- Reply: { ok = bool, error? = string, message? = string }
+RegisterNUICallback('deleteBuilding', function(data, cb)
+    relay('ze-interiors:menu:deleteBuilding', data, cb, { ok = false, error = 'No answer from the server' })
+end)
+
 -- Edit house. data = { house = house id, name = string, entrances = { { exit, x, y, z, w }, ... } }
+-- (an apartment sends building and floor instead of the entrances)
 -- Reply: { ok = bool, error? = string, message? = string }
 RegisterNUICallback('updateHouse', function(data, cb)
     relay('ze-interiors:menu:updateHouse', data, cb, { ok = false, error = 'No answer from the server' })

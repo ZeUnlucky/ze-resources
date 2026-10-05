@@ -2,6 +2,9 @@ Shared = {}
 
 Shared.Houses = {}
 
+-- Shared.Buildings[id] = { name, entrance = vector4, floors = number of floors }. Filled by the server (server/buildings.lua).
+Shared.Buildings = {}
+
 Shared.DumpTable = function(o)
     if type(o) == 'table' then
        local s = '{ '

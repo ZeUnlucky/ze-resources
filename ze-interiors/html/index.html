@@ -13,6 +13,7 @@
         <symbol id="i-list" viewBox="0 0 24 24"><path d="M5 6h14M5 12h14M5 18h9"/></symbol>
         <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
         <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3.5 12.3V4.5a1 1 0 0 1 1-1h7.8l8.2 8.2a1.4 1.4 0 0 1 0 2l-6.8 6.8a1.4 1.4 0 0 1-2 0z"/><circle cx="8" cy="8" r="1.4"/></symbol>
+        <symbol id="i-building" viewBox="0 0 24 24"><path d="M5 21V4.5A1.5 1.5 0 0 1 6.5 3h8A1.5 1.5 0 0 1 16 4.5V21"/><path d="M16 9h2.5A1.5 1.5 0 0 1 20 10.5V21"/><path d="M3.5 21h17"/><path d="M8.5 7h4M8.5 11h4M8.5 15h4"/></symbol>
         <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-3-3L5 17z"/><path d="m14.5 7.5 3 3"/></symbol>
         <symbol id="i-trash" viewBox="0 0 24 24"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/></symbol>
         <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5 5"/></symbol>
@@ -41,6 +42,7 @@
             <nav class="tabs" id="tabs">
                 <button type="button" class="tab on" data-tab="houses"><svg class="icon"><use href="#i-list"/></svg><span>Houses</span></button>
                 <button type="button" class="tab" data-tab="add"><svg class="icon"><use href="#i-plus"/></svg><span>Add house</span></button>
+                <button type="button" class="tab" data-tab="buildings"><svg class="icon"><use href="#i-building"/></svg><span>Buildings</span></button>
                 <button type="button" class="tab" data-tab="sell"><svg class="icon"><use href="#i-tag"/></svg><span>Sell house</span></button>
             </nav>
 
@@ -61,13 +63,40 @@
                     <input type="text" class="text" id="add-name" placeholder="e.g. Vinewood Hills 12" maxlength="40" autocomplete="off" spellcheck="false">
                 </label>
 
+                <!-- new houses only: a normal house or an apartment in a building -->
+                <div id="type-block">
+                    <div class="group-title">Type</div>
+                    <div class="seg" id="add-type">
+                        <button type="button" class="on" data-type="house"><svg class="icon"><use href="#i-home"/></svg>House</button>
+                        <button type="button" data-type="apartment"><svg class="icon"><use href="#i-building"/></svg>Apartment</button>
+                    </div>
+                </div>
+
                 <div class="group-title">Interior</div>
                 <div class="interiors" id="add-interiors"></div>
                 <p class="hint" id="interior-hint" hidden>The interior of an existing house cannot be changed, because people can be standing inside it. Delete the house and add it again to use another interior.</p>
 
-                <div class="group-title" id="entrances-title">Entrances</div>
-                <p class="hint" id="entrances-hint"></p>
-                <div id="add-entrances"></div>
+                <!-- apartment: the building and the floor in it -->
+                <div id="apartment-block" hidden>
+                    <div class="group-title">Building</div>
+                    <div class="select">
+                        <select class="text" id="add-building"></select>
+                        <svg class="icon"><use href="#i-down"/></svg>
+                    </div>
+                    <div class="group-title">Floor</div>
+                    <div class="select">
+                        <select class="text" id="add-floor"></select>
+                        <svg class="icon"><use href="#i-down"/></svg>
+                    </div>
+                    <p class="hint" id="apartment-hint"></p>
+                </div>
+
+                <!-- normal house: the entrances -->
+                <div id="entrances-block">
+                    <div class="group-title" id="entrances-title">Entrances</div>
+                    <p class="hint" id="entrances-hint"></p>
+                    <div id="add-entrances"></div>
+                </div>
 
                 <!-- only while editing a house -->
                 <div id="access" hidden>
@@ -75,6 +104,26 @@
                     <p class="hint">These save as soon as you change them. The name and the entrances above still need Save changes.</p>
                     <div id="access-body"></div>
                 </div>
+            </div>
+
+            <!-- ============ Buildings ============ -->
+            <div class="body" id="pane-buildings" hidden>
+                <div class="group-title">Buildings</div>
+                <div id="building-list"></div>
+
+                <div class="group-title">New building</div>
+                <label class="field">
+                    <span class="field-cap">Building name</span>
+                    <input type="text" class="text" id="nb-name" placeholder="e.g. Alta Street Tower" maxlength="40" autocomplete="off" spellcheck="false">
+                </label>
+                <label class="field field-gap">
+                    <span class="field-cap">Number of floors</span>
+                    <input type="number" class="text" id="nb-floors" placeholder="e.g. 5" min="1" max="200" step="1" autocomplete="off">
+                </label>
+
+                <div class="group-title">Entrance</div>
+                <p class="hint">The door every apartment of the building shares. Stand where the door is and press Use my position, or type the coordinates (a pasted vector4 fills all four).</p>
+                <div id="nb-entrance"></div>
             </div>
 
             <!-- ============ Sell house ============ -->
