@@ -16,7 +16,8 @@ files {
 
 client_scripts {
     'client/client.lua',
-    'client/menu.lua'
+    'client/menu.lua',
+    'client/lobby.lua'
 }
 
 dependencies {
@@ -30,6 +31,7 @@ server_scripts {
     'server/houses.lua',
     'server/server.lua',
     'server/menu.lua',
+    'server/lobby.lua',
     'server/keys.lua'
 }
 

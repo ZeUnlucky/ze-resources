@@ -398,6 +398,39 @@ input { user-select: text; }
 
 .btn-sm:disabled { opacity: 0.45; pointer-events: none; }
 
+/* ---------- Building menu: floors and apartments ---------- */
+
+.lobby-panel {
+    width: clamp(30rem, 32vw, 48rem);
+    height: min(48rem, 100%);
+}
+.lobby-panel .panel-head { padding-bottom: 0.8rem; }
+.lobby-panel .body { padding-top: 0.5rem; }
+
+/* a floor row is a button: the whole row opens the floor */
+.floor-row {
+    width: 100%;
+    border: 1px solid var(--line);
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+.floor-row:hover { border-color: rgba(var(--accent-rgb), 0.4); background: rgba(var(--accent-rgb), 0.06); }
+.floor-row .go { width: 1.1rem; height: 1.1rem; color: var(--faint); flex: none; transition: color 0.15s, transform 0.15s; }
+.floor-row:hover .go { color: var(--accent); transform: translateX(2px); }
+.floor-row.empty-floor { opacity: 0.55; }
+
+.chip.key { background: rgba(var(--accent-rgb), 0.1); color: var(--accent); }
+.chip.taken { color: var(--muted); }
+
+.btn-sm.primary {
+    border-color: transparent;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2));
+    color: var(--accent-ink);
+}
+.btn-sm.primary:hover { color: var(--accent-ink); filter: brightness(1.08); }
+
 .field-gap { margin-top: 0.7rem; }
 
 /* ---------- House / Apartment switch ---------- */

@@ -60,6 +60,12 @@ RegisterNUICallback('setWaypoint', function(data, cb)
     if not door then return cb({ ok = false, error = 'That house does not exist' }) end
 
     SetNewWaypoint(door.x, door.y)
+
+    -- an apartment's first entrance is the door of its building
+    local building = house.building and Shared.Buildings[house.building]
+    if building then
+        return cb({ ok = true, message = ('Waypoint set to the entrance of %s (%s)'):format(building.name, house.name) })
+    end
     cb({ ok = true, message = ('Waypoint set to %s'):format(house.name) })
 end)
 

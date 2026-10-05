@@ -23,6 +23,25 @@ function Buildings.Load()
     end
 end
 
+-- The plain table that goes to the clients (nil for a building that does not exist, which tells them to drop it).
+-- The clients need the buildings for the door zone of each one and for the map blips.
+function Buildings.Pack(id)
+    local building = Shared.Buildings[id]
+    if not building then return nil end
+    local e = building.entrance
+    return { id = id, name = building.name, floors = building.floors, entrance = { x = e.x, y = e.y, z = e.z, w = e.w } }
+end
+
+function Buildings.SyncAll(target)
+    local list = {}
+    for id in pairs(Shared.Buildings) do list[#list + 1] = Buildings.Pack(id) end
+    TriggerClientEvent('ze-interiors:SyncBuildings', target or -1, list)
+end
+
+function Buildings.Sync(id)
+    TriggerClientEvent('ze-interiors:SyncBuilding', -1, id, Buildings.Pack(id))
+end
+
 function Buildings.Count(id)
     local count = 0
     for _, house in pairs(Shared.Houses) do
@@ -37,6 +56,7 @@ function Buildings.Create(name, floors, entrance)
     if not ok or not id then return false, 'The database did not save the building' end
 
     Shared.Buildings[id] = { name = name, entrance = entrance, floors = floors }
+    Buildings.Sync(id)
     return id
 end
 
@@ -48,5 +68,6 @@ function Buildings.Delete(id)
     if not ok then return false, 'The database did not delete the building' end
 
     Shared.Buildings[id] = nil
+    Buildings.Sync(id)
     return true
 end

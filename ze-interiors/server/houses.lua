@@ -88,6 +88,7 @@ function Houses.Load()
     local count = 0
     for _ in pairs(Shared.Houses) do count = count + 1 end
     print(('^2[ze-interiors]^7 %d houses loaded'):format(count))
+    Buildings.SyncAll()
     Houses.SyncAll()
 end
 
@@ -133,6 +134,7 @@ end
 RegisterNetEvent('ze-interiors:RequestHouses', function()
     local src = source
     while not loaded do Wait(200) end
+    Buildings.SyncAll(src)   -- before the houses: the blips of an apartment use the name of its building
     Houses.SyncAll(src)
 end)
 

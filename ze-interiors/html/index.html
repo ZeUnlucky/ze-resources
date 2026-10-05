@@ -25,6 +25,8 @@
         <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
         <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
         <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4 2.8 19.5h18.4z"/><path d="M12 10v4.5M12 17.3v.1"/></symbol>
+        <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></symbol>
+        <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
         <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
     </svg>
 
@@ -163,6 +165,23 @@
         </div>
 
         <div class="toasts" id="toasts"></div>
+    </div>
+
+    <!-- The floors and apartments menu of a building (the Apartments option at its entrance). A separate overlay from the house manager. -->
+    <div class="app lobby" id="lobby" hidden>
+        <section class="panel lobby-panel">
+            <header class="panel-head">
+                <button type="button" class="close" id="lobby-back" title="Back to the floors" hidden><svg class="icon"><use href="#i-left"/></svg></button>
+                <div class="panel-icon"><svg class="icon"><use href="#i-building"/></svg></div>
+                <div class="panel-titles">
+                    <h1 class="panel-title" id="lobby-title"></h1>
+                    <p class="panel-sub" id="lobby-sub"></p>
+                </div>
+                <button type="button" class="close" id="lobby-close" title="Close"><svg class="icon"><use href="#i-x"/></svg></button>
+            </header>
+            <div class="body" id="lobby-body"></div>
+        </section>
+        <div class="toasts" id="lobby-toasts"></div>
     </div>
 
     <script src="script.js"></script>

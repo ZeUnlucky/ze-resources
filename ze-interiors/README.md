@@ -8,7 +8,7 @@ Import `ze_houses.sql`, then `ze_buildings.sql` and `ze_houses_apartments.sql` (
 
 **Entrances and exits.** An interior can have any number of `exits` in `Config.Interiors`. A house always has an entrance on exit 1; entrances on the other exits are optional. The `entrances` column is a JSON list of `{ exit, x, y, z, w }`, and `Shared.Houses[id].entrances` is keyed by exit number and can have holes, so walk it with `pairs`. Rows saved before this (a plain list without `exit`) still load: the position in the list is the exit. Inside a house, the Exit / Lock / Unlock options at an exit only show when the house has an entrance on that exit.
 
-**Buildings and apartments.** A building (`ze_buildings`: name, entrance, number of floors) is a door that a group of apartments share. An apartment is a normal `ze_houses` row with a `building` and a `floor` (1 to the building's floors); both are `NULL` for a house. An apartment has no entrances of its own: its only entrance (exit 1) is the building's door, so leaving an apartment puts you back there, and its owner, keys, lock, stash and sale work like a house's. The client does not build a door zone for an apartment yet, so apartments cannot be entered until the building's floors-and-apartments menu exists. A building with apartments cannot be deleted. `server/buildings.lua` is the only writer of `ze_buildings`; buildings load before houses.
+**Buildings and apartments.** A building (`ze_buildings`: name, entrance, number of floors) is a door that a group of apartments share. An apartment is a normal `ze_houses` row with a `building` and a `floor` (1 to the building's floors); both are `NULL` for a house. An apartment has no entrances of its own: its only entrance (exit 1) is the building's door, so leaving an apartment puts you back there, and its owner, keys, lock, stash and sale work like a house's. The clients get the buildings from the server (`ze-interiors:SyncBuildings` / `SyncBuilding`, always before the houses). An apartment gets no door zone of its own: the building gets one qb-target zone at its entrance with an **Apartments** option, which fires the client event `ze-interiors:OpenBuilding` with the building id and opens the building menu (see below). Set waypoint on an apartment leads to the building's entrance, and an owner gets one map blip per building (named after it) however many apartments they own there. A building with apartments cannot be deleted. `server/buildings.lua` is the only writer of `ze_buildings`; buildings load before houses.
 
 The menu has four tabs:
 
@@ -25,11 +25,25 @@ The menu has four tabs:
 | --- | --- |
 | `html/` | The menu UI. |
 | `client/menu.lua` | Opens the NUI and relays each NUI callback to the server. |
-| `client/client.lua` | qb-target zones and the owner's map blips (green house icon on the first entrance, only on the owner's own map). Doors and blips are rebuilt when the server syncs a house, and the blips again when a character loads or logs out. |
+| `client/client.lua` | qb-target zones and the owner's map blips (green house icon on the first entrance, only on the owner's own map; one per building for apartments) and the building entrance zones. Doors and blips are rebuilt when the server syncs a house or a building, and the blips again when a character loads or logs out. |
 | `server/houses.lua` | Loads `ze_houses`, and the only place that writes to it: `Houses.Create / Update / SetOwner / SetLocked / Delete`. Syncs every change to the clients. |
 | `server/menu.lua` | The command, the permission check and the menu callbacks (validation, then a call into `Houses`). |
 | `server/server.lua` | Enter, exit, stash and lock events. Locking is saved. |
 | `server/keys.lua` | The `/givekeys` command (see below). Not connected to the menu. |
+| `client/lobby.lua`, `server/lobby.lua` | The building menu (see below). |
+
+## Building menu (floors and apartments)
+
+The **Apartments** option at a building's entrance opens a menu with every floor of the building (floors without apartments are listed too, and show an empty state). A floor opens the list of its apartments; the arrow in the header or Escape goes back a step, Escape on the floors closes the menu. It is a separate overlay in the same NUI page (`#lobby`), not part of the house manager.
+
+Each apartment shows whether it is locked and what it is to you: **Yours**, **Key** (you hold a key), **Vacant** (nobody owns it) or **Occupied**. Other tenants' names are never sent. The buttons depend on what you may do right now, and the server decides:
+
+| Locked | Buttons |
+| --- | --- |
+| no | **Enter**, and **Lock** if you own it or hold a key |
+| yes | **Unlock** if you own it or hold a key, **Breach** for the `police` job, **Lockpick** if you carry a `lockpick` |
+
+Server callbacks (everyone may call them, every call is checked): `ze-interiors:lobby:getBuilding` `{ building }` replies `{ ok, building = { id, name, floors = { { floor, apartments = { { id, name, status, locked, actions } } } } }, error? }`, and `ze-interiors:lobby:act` `{ house, action }` (`enter`, `lock`, `unlock`, `breach`, `lockpick`) replies `{ ok, message?, error? }`. Both require you to stand within 6 m of the building's entrance, outside, and `act` refuses an action that is not in the apartment's `actions`. Entering uses the same `Houses.Enter` as the house doors, and leaving puts you back at the building's door. NUI messages: `openLobby { building }` / `closeLobby` from Lua, and `lobbyGet`, `lobbyAct`, `lobbyClose` back.
 
 What the actions do besides the table: **selling** sets the owner and clears the keyholders, and notifies the buyer. **Deleting** puts anyone still inside back on the first entrance, then empties the stash (`interiorStash<id>`) and removes it from the inventory. `ownerName` in `getData` is read from the `players` table, so it also works for offline owners.
 

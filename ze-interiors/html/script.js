@@ -1,7 +1,9 @@
 /* ze-interiors NUI. Vanilla JS, no build step, no CDNs, no jQuery.
    Lua sends: open, data, close.
    The UI sends back: getData, getPosition, setWaypoint, lookupPlayer, createHouse, updateHouse, sellHouse, deleteHouse,
-   createBuilding, deleteBuilding, close. (See README.md.) */
+   createBuilding, deleteBuilding, close.
+   The building menu (the Apartments option at a building's entrance) has its own overlay: Lua sends openLobby / closeLobby,
+   the UI sends lobbyGet, lobbyAct, lobbyClose. (See README.md.) */
 
 (() => {
     'use strict';
@@ -990,7 +992,7 @@
     function toast(text, kind) {
         const t = el('div', `toast ${kind || 'ok'}`);
         t.append(icon(kind === 'err' ? 'alert' : 'check'), document.createTextNode(text));
-        $('#toasts').appendChild(t);
+        $(L.open ? '#lobby-toasts' : '#toasts').appendChild(t);
         requestAnimationFrame(() => requestAnimationFrame(() => t.classList.add('show')));
         setTimeout(() => {
             t.classList.remove('show');
@@ -1042,9 +1044,187 @@
     $('#close').addEventListener('click', finish);
 
     document.addEventListener('keydown', (e) => {
-        if (!S.open || e.key !== 'Escape') return;
+        if (e.key !== 'Escape') return;
+        if (L.open) {
+            // the apartments of a floor go back to the floors, the floors close the menu
+            if (L.floor !== null) { L.floor = null; renderLobby(); } else finishLobby();
+            return;
+        }
+        if (!S.open) return;
         if (!$('#modal').hidden) closeModal(); else finish();
     });
+
+    // ------------------------------------------------------------------ building menu: floors, then the apartments of a floor
+    // Lua sends openLobby with the building the server built for this player:
+    //   { id, name, floors = [ { floor, apartments = [ { id, name, status, locked, actions } ] } ] }
+    // status: yours | key | free | taken. actions: what the player may do now (enter, lock, unlock, breach, lockpick).
+    // The UI sends back lobbyGet, lobbyAct and lobbyClose.
+
+    const L = { open: false, building: null, floor: null, busy: false, hideTimer: null };
+
+    const STATUS = {
+        yours: { cls: 'owned', icon: 'user', text: 'Yours' },
+        key: { cls: 'key', icon: 'lock', text: 'Key' },
+        free: { cls: 'free', icon: 'tag', text: 'Vacant' },
+        taken: { cls: 'taken', icon: 'user', text: 'Occupied' },
+    };
+
+    const ACTIONS = {
+        enter: { label: 'Enter', icon: 'door', primary: true, failText: 'Could not enter' },
+        lock: { label: 'Lock', icon: 'lock', failText: 'Could not lock it' },
+        unlock: { label: 'Unlock', icon: 'unlock', failText: 'Could not unlock it' },
+        breach: { label: 'Breach', icon: 'unlock', failText: 'Could not breach it' },
+        lockpick: { label: 'Lockpick', icon: 'unlock', failText: 'Could not pick the lock' },
+    };
+
+    const lobbyFloors = () => toList(L.building && L.building.floors).map((f) => ({ ...f, apartments: toList(f.apartments) }));
+    const lobbyFloor = (n) => lobbyFloors().find((f) => Number(f.floor) === Number(n)) || null;
+
+    function renderLobby() {
+        const b = L.building;
+        if (!b) return;
+        const floors = lobbyFloors();
+        const body = $('#lobby-body');
+        body.textContent = '';
+        $('#lobby-title').textContent = b.name || `Building ${b.id}`;
+        $('#lobby-back').hidden = L.floor === null;
+
+        if (L.floor === null) {
+            const apartments = floors.reduce((n, f) => n + f.apartments.length, 0);
+            $('#lobby-sub').textContent = `${plural(floors.length, 'floor', 'floors')} · ${plural(apartments, 'apartment', 'apartments')}`;
+            floors.forEach((f) => body.appendChild(floorRow(f)));
+            return;
+        }
+
+        const f = lobbyFloor(L.floor);
+        if (!f) { L.floor = null; renderLobby(); return; }
+        $('#lobby-sub').textContent = `Floor ${f.floor} · ${plural(f.apartments.length, 'apartment', 'apartments')}`;
+        if (!f.apartments.length) {
+            const e = el('div', 'empty');
+            e.append(el('b', null, 'No apartments'), document.createTextNode('There are no apartments on this floor.'));
+            body.appendChild(e);
+            return;
+        }
+        f.apartments.forEach((a) => body.appendChild(apartmentRow(a)));
+    }
+
+    function floorRow(f) {
+        const mine = f.apartments.filter((a) => a.status === 'yours').length;
+        const keys = f.apartments.filter((a) => a.status === 'key').length;
+        const vacant = f.apartments.filter((a) => a.status === 'free').length;
+
+        const row = el('button', `house floor-row${f.apartments.length ? '' : ' empty-floor'}`);
+        row.type = 'button';
+        row.appendChild(el('div', 'house-id', String(f.floor)));
+
+        const main = el('div', 'house-main');
+        main.appendChild(el('div', 'house-name', `Floor ${f.floor}`));
+        const metaRow = el('div', 'house-meta');
+        metaRow.appendChild(meta('home', '', plural(f.apartments.length, 'apartment', 'apartments')));
+        if (vacant) metaRow.appendChild(meta('tag', '', `${vacant} vacant`));
+        main.appendChild(metaRow);
+        row.appendChild(main);
+
+        if (mine || keys) {
+            const chips = el('div', 'chips');
+            if (mine) chips.appendChild(chip('owned', 'user', `${mine} yours`));
+            if (keys) chips.appendChild(chip('key', 'lock', plural(keys, 'key', 'keys')));
+            row.appendChild(chips);
+        }
+        row.appendChild(icon('right')).classList.add('go');
+        row.addEventListener('click', () => { L.floor = f.floor; renderLobby(); $('#lobby-body').scrollTop = 0; });
+        return row;
+    }
+
+    function apartmentRow(a) {
+        const st = STATUS[a.status] || STATUS.taken;
+        const row = el('div', 'house');
+        const ico = el('div', 'house-id');
+        ico.appendChild(icon('home'));
+        row.appendChild(ico);
+
+        const main = el('div', 'house-main');
+        main.appendChild(el('div', 'house-name', a.name || `Apartment ${a.id}`));
+        const metaRow = el('div', 'house-meta');
+        metaRow.appendChild(meta(a.locked ? 'lock' : 'unlock', '', a.locked ? 'Locked' : 'Unlocked'));
+        main.appendChild(metaRow);
+        row.appendChild(main);
+
+        const chips = el('div', 'chips');
+        chips.appendChild(chip(st.cls, st.icon, st.text));
+        row.appendChild(chips);
+
+        const actions = el('div', 'house-actions');
+        toList(a.actions).forEach((name) => {
+            const def = ACTIONS[name];
+            if (!def) return;
+            const b = el('button', `btn-sm${def.primary ? ' primary' : ''}`);
+            b.type = 'button';
+            b.disabled = L.busy;
+            b.append(icon(def.icon), document.createTextNode(def.label));
+            b.addEventListener('click', () => lobbyAct(a, name));
+            actions.appendChild(b);
+        });
+        row.appendChild(actions);
+        return row;
+    }
+
+    function lobbyAct(a, action) {
+        if (L.busy) return;
+        L.busy = true;
+        renderLobby();
+        post('lobbyAct', { house: a.id, action }).then((res) => {
+            L.busy = false;
+            if (res && res.ok) {
+                if (action === 'enter') { finishLobby(); return; }
+                toast(res.message || 'Done', 'ok');
+                refreshLobby();
+            } else {
+                toast((res && res.error) || ACTIONS[action].failText, 'err');
+                refreshLobby();     // what the player may do could have changed
+            }
+        });
+    }
+
+    // Reloads the building from the server and keeps the floor that is open.
+    function refreshLobby() {
+        return post('lobbyGet', { building: L.building.id }).then((res) => {
+            if (res && res.ok && res.building) L.building = res.building;
+            else if (res && res.error) { toast(res.error, 'err'); finishLobby(); return; }
+            renderLobby();
+        });
+    }
+
+    function openLobby(msg) {
+        if (msg.accent) setAccent(msg.accent);
+        L.building = msg.building;
+        L.floor = null;
+        L.busy = false;
+        renderLobby();
+
+        const app = $('#lobby');
+        clearTimeout(L.hideTimer);
+        app.hidden = false;
+        L.open = true;
+        requestAnimationFrame(() => requestAnimationFrame(() => app.classList.add('open')));
+    }
+
+    function hideLobby() {
+        const app = $('#lobby');
+        L.open = false;
+        app.classList.remove('open');
+        clearTimeout(L.hideTimer);
+        L.hideTimer = setTimeout(() => { app.hidden = true; }, 220);
+    }
+
+    function finishLobby() {
+        if (!L.open) return;
+        hideLobby();
+        post('lobbyClose');
+    }
+
+    $('#lobby-close').addEventListener('click', finishLobby);
+    $('#lobby-back').addEventListener('click', () => { L.floor = null; renderLobby(); });
 
     // ------------------------------------------------------------------ messages from Lua
 
@@ -1060,6 +1240,12 @@
                 break;
             case 'close':
                 hide();
+                break;
+            case 'openLobby':
+                openLobby(msg);
+                break;
+            case 'closeLobby':
+                hideLobby();
                 break;
         }
     });

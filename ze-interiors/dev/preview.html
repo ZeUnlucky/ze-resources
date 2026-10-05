@@ -34,6 +34,8 @@
     <h3>ze-interiors preview</h3>
     <button data-s="open">Open menu</button>
     <button data-s="empty">Open, no houses</button>
+    <button data-s="lobby">Open building menu</button>
+    <button data-s="police">Police: <span id="po">off</span></button>
     <hr>
     <button data-s="fail">Actions fail: <span id="fl">off</span></button>
     <div id="log"></div>
@@ -77,11 +79,40 @@
 
     const PLAYERS = { 1: { name: 'Marcus Webb', citizenid: 'ABC12345' }, 7: { name: 'Dana Holloway', citizenid: 'XYZ98765' }, 12: { name: 'Eli Park', citizenid: 'QWE55512' } };
 
+    // ---- the building menu: the same shape server/lobby.lua builds for a player
+    const lobbyApts = [
+        { id: 11, floor: 1, name: '1A', status: 'free', locked: false },
+        { id: 12, floor: 1, name: '1B', status: 'taken', locked: true },
+        { id: 13, floor: 2, name: '2A', status: 'yours', locked: false },
+        { id: 14, floor: 2, name: '2B', status: 'key', locked: true },
+        { id: 15, floor: 2, name: '2C', status: 'taken', locked: false },
+        { id: 16, floor: 4, name: '4B', status: 'free', locked: false },
+    ];
+    let lobbyPolice = false;
+    const actionsOf = (a) => (a.locked
+        ? [].concat(a.status === 'yours' || a.status === 'key' ? ['unlock'] : [], lobbyPolice ? ['breach'] : [], ['lockpick'])
+        : ['enter'].concat(a.status === 'yours' || a.status === 'key' ? ['lock'] : []));
+    function lobbyBuilding() {
+        const floors = [];
+        for (let f = 1; f <= 5; f++) floors.push({ floor: f, apartments: lobbyApts.filter((a) => a.floor === f).map((a) => ({ id: a.id, name: a.name, status: a.status, locked: a.locked, actions: actionsOf(a) })) });
+        return { id: 1, name: 'Alta Street Tower', floors };
+    }
+
     // ---- the fake Lua: the same replies client/menu.lua + server/menu.lua give
     function mockPost(name, d) {
         log(name + ' ' + JSON.stringify(d));
         switch (name) {
             case 'getData': recount(); return { interiors, buildings, houses };
+            case 'lobbyClose': return 'ok';
+            case 'lobbyGet': return { ok: true, building: lobbyBuilding() };
+            case 'lobbyAct': {
+                if (fail) return { ok: false, error: 'You cannot do that' };
+                const a = lobbyApts.find((x) => x.id === d.house);
+                if (!a || !actionsOf(a).includes(d.action)) return { ok: false, error: 'You cannot do that' };
+                if (d.action === 'lock') a.locked = true;
+                if (d.action === 'unlock' || d.action === 'breach' || d.action === 'lockpick') a.locked = false;
+                return { ok: true, message: d.action + ' ' + a.name };
+            }
             case 'createBuilding': {
                 if (fail) return { ok: false, error: 'Not implemented yet' };
                 buildings = buildings.concat({ id: nextBuilding++, name: d.name, floors: d.floors, apartments: 0, entrance: d.entrance });
@@ -162,6 +193,8 @@
     const scenes = {
         open: () => { recount(); send({ action: 'open', interiors, buildings, houses, accent: '#ff7a1a' }); },
         empty: () => { houses = []; buildings = []; send({ action: 'open', interiors, buildings, houses }); },
+        lobby: () => send({ action: 'openLobby', building: lobbyBuilding(), accent: '#ff7a1a' }),
+        police: () => { lobbyPolice = !lobbyPolice; document.getElementById('po').textContent = lobbyPolice ? 'on' : 'off'; },
     };
 
     document.getElementById('ctl').addEventListener('click', (e) => {
