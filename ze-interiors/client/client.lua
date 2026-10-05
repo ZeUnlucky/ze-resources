@@ -65,6 +65,25 @@ Citizen.CreateThread(function()
             },
             distance = 2.0
         })
+
+        exports['qb-target']:AddCircleZone(id.."clothes", v.clothes, 1, {
+            name = id.."clothes",
+            useZ = true
+          }, {
+            options = {
+              {
+                icon = "fas fa-dresser",
+                label = "Open Clothing",
+                action = function(entity)
+
+                end,
+                drawDistance = 5.0,
+                drawColor = {255, 255, 255, 255},
+                successDrawColor = {0, 255, 0, 255}
+              }
+            },
+            distance = 2.0
+        })
     end
 end)
 

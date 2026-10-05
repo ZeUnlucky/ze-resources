@@ -1,0 +1,147 @@
+-- Everything under `ui` is sent to the NUI and replaces its built-in English text. The keys under `ui` that match a
+-- skin key (nose_0, t-shirt, hat ...) are the row labels, so translating them is all a new language needs.
+
+local Translations = {
+    store = {
+        barber = 'Barbershop',
+        surgeon = 'Plastic Surgeon',
+        clothing = 'Clothing store',
+        outfitchanger = 'Outfit Changer',
+        room = 'Locker Room',
+        wardrobe = 'Wardrobe',
+        creator = 'Character Creator',
+    },
+
+    menu = {
+        features = 'Features',
+        hair = 'Hair & Face',
+        clothing = 'Clothing',
+        accessories = 'Accessories',
+        presets = 'Presets',
+        outfits = 'My Outfits',
+    },
+
+    notify = {
+        error_bracelet = "You can't remove your ankle bracelet ...",
+        outfit_deleted = 'You have deleted your %{outfit} outfit!',
+        outfit_chosen = 'You have chosen %{outfit}! Press Confirm to keep the outfit.',
+        outfit_saved = 'Outfit saved.',
+        outfit_limit = 'You cannot save more than %{max} outfits. Delete one first.',
+        outfit_name = 'Give the outfit a name.',
+    },
+
+    ui = {
+        -- chrome
+        confirm = 'Confirm',
+        cancel = 'Cancel',
+        save_outfit = 'Save outfit',
+        outfit_name = 'Outfit name',
+        outfit_name_hint = 'Give this outfit a name',
+        wear = 'Wear',
+        delete = 'Delete',
+        sure = 'Sure?',
+        no_outfits = 'You have no saved outfits yet.',
+        no_presets = 'No outfits are set up for your rank.',
+        cam_full = 'Full body',
+        cam_head = 'Head',
+        cam_torso = 'Torso',
+        cam_legs = 'Legs',
+        rotate = 'Rotate',
+        locked = 'Locked',
+        none = 'None',
+        style = 'Style',
+        texture = 'Variant',
+        color = 'Color',
+        opacity = 'Opacity',
+        model = 'Model',
+        player_model = 'Player model',
+
+        -- groups
+        grp_model = 'Model',
+        grp_parents = 'Parents',
+        grp_nose = 'Nose',
+        grp_brows = 'Brows',
+        grp_cheeks = 'Cheeks',
+        grp_eyes = 'Eyes',
+        grp_lips = 'Lips',
+        grp_jaw = 'Jaw',
+        grp_chin = 'Chin',
+        grp_neck = 'Neck',
+        grp_hair = 'Hair',
+        grp_face = 'Face',
+        grp_makeup = 'Makeup',
+        grp_tops = 'Tops',
+        grp_bottoms = 'Bottoms & shoes',
+        grp_extras = 'Extras',
+        grp_head = 'Head',
+        grp_body = 'Wrists & ears',
+
+        -- parents
+        face = 'Mother',
+        face2 = 'Father',
+        facemix = 'Parent mix',
+        shape = 'Shape',
+        skin = 'Skin tone',
+        shape_mix = 'Shape mix',
+        skin_mix = 'Skin mix',
+        mother = 'Mother',
+        father = 'Father',
+
+        -- features
+        nose_0 = 'Nose width',
+        nose_1 = 'Nose peak height',
+        nose_2 = 'Nose peak length',
+        nose_3 = 'Nose bone height',
+        nose_4 = 'Nose peak lowering',
+        nose_5 = 'Nose bone twist',
+        eyebrown_high = 'Brow height',
+        eyebrown_forward = 'Brow depth',
+        cheek_1 = 'Cheekbone height',
+        cheek_2 = 'Cheekbone width',
+        cheek_3 = 'Cheek width',
+        eye_opening = 'Eye opening',
+        lips_thickness = 'Lip thickness',
+        jaw_bone_width = 'Jaw width',
+        jaw_bone_back_lenght = 'Jaw length',
+        chimp_bone_lowering = 'Chin height',
+        chimp_bone_lenght = 'Chin length',
+        chimp_bone_width = 'Chin width',
+        chimp_hole = 'Chin hole',
+        neck_thikness = 'Neck thickness',
+
+        -- hair and face
+        hair = 'Hair',
+        eyebrows = 'Eyebrows',
+        beard = 'Facial hair',
+        eye_color = 'Eye color',
+        moles = 'Moles / freckles',
+        ageing = 'Ageing',
+        lipstick = 'Lipstick',
+        blush = 'Blush',
+        makeup = 'Makeup',
+
+        -- clothing
+        arms = 'Arms',
+        ['t-shirt'] = 'Undershirt / belts',
+        torso2 = 'Jackets / tops',
+        vest = 'Vests',
+        decals = 'Decals',
+        accessory = 'Neck accessories',
+        bag = 'Bags',
+        pants = 'Pants',
+        shoes = 'Shoes',
+
+        -- accessories
+        mask = 'Masks',
+        hat = 'Hats',
+        glass = 'Glasses',
+        ear = 'Ear accessories',
+        watch = 'Watches',
+        bracelet = 'Bracelets',
+    },
+}
+
+Lang = Lang or Locale:new({
+    phrases = Translations,
+    warnOnMissing = true,
+})
