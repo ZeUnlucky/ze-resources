@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ze-clothing</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Icon sprite. 24x24, stroked with currentColor. -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <symbol id="i-hanger" viewBox="0 0 24 24"><path d="M12 8V6.5a2.5 2.5 0 1 0-2.5-2.5"/><path d="M12 8 3.4 15.2A1.8 1.8 0 0 0 4.6 18.4h14.8a1.8 1.8 0 0 0 1.2-3.2z"/></symbol>
+        <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></symbol>
+        <symbol id="i-scissors" viewBox="0 0 24 24"><circle cx="6" cy="6" r="2.5"/><circle cx="6" cy="18" r="2.5"/><path d="M8 7.5 20 18M8 16.5 20 6"/></symbol>
+        <symbol id="i-shirt" viewBox="0 0 24 24"><path d="M8 3 3.5 5.5l1.7 4.2L8 8.6V20h8V8.6l2.8 1.1 1.7-4.2L16 3c-.4 1.6-2 2.6-4 2.6S8.4 4.6 8 3z"/></symbol>
+        <symbol id="i-glasses" viewBox="0 0 24 24"><circle cx="6.5" cy="14" r="3.5"/><circle cx="17.5" cy="14" r="3.5"/><path d="M10 14h4M3 14l2-7M21 14l-2-7"/></symbol>
+        <symbol id="i-bookmark" viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/></symbol>
+        <symbol id="i-bookmark-plus" viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/><path d="M12 7.5v5M9.5 10h5"/></symbol>
+        <symbol id="i-list" viewBox="0 0 24 24"><path d="M5 6h14M5 12h14M5 18h9"/></symbol>
+        <symbol id="i-body" viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2"/><path d="M12 7.5v6.5M7.5 10 12 8l4.5 2M12 14l-3 7M12 14l3 7"/></symbol>
+        <symbol id="i-head" viewBox="0 0 24 24"><circle cx="12" cy="9.5" r="5"/><path d="M5 21c1-3.2 3.5-4.8 7-4.8s6 1.6 7 4.8"/></symbol>
+        <symbol id="i-pants" viewBox="0 0 24 24"><path d="M7.5 3h9l1 18h-4.2L12 10.5 10.7 21H6.5z"/></symbol>
+        <symbol id="i-turn" viewBox="0 0 24 24"><path d="M20 12a8 8 0 1 1-2.9-6.2"/><path d="M20 3.5v4.3h-4.3"/></symbol>
+        <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+        <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+        <symbol id="i-trash" viewBox="0 0 24 24"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/></symbol>
+        <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+        <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></symbol>
+        <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+    </svg>
+
+    <div class="app" id="app" hidden>
+        <aside class="panel" id="panel">
+            <header class="panel-head">
+                <div class="panel-icon"><svg class="icon"><use href="#i-hanger"/></svg></div>
+                <div class="panel-titles">
+                    <h1 class="panel-title" id="title">Wardrobe</h1>
+                    <p class="panel-sub" id="subtitle"></p>
+                </div>
+            </header>
+
+            <nav class="tabs" id="tabs"></nav>
+
+            <div class="toolbar">
+                <div class="seg" id="cams">
+                    <button type="button" class="seg-btn on" data-cam="0" data-tt="cam_full"><svg class="icon"><use href="#i-body"/></svg></button>
+                    <button type="button" class="seg-btn" data-cam="1" data-tt="cam_head"><svg class="icon"><use href="#i-head"/></svg></button>
+                    <button type="button" class="seg-btn" data-cam="2" data-tt="cam_torso"><svg class="icon"><use href="#i-shirt"/></svg></button>
+                    <button type="button" class="seg-btn" data-cam="3" data-tt="cam_legs"><svg class="icon"><use href="#i-pants"/></svg></button>
+                </div>
+                <div class="orbit">
+                    <span class="orbit-hint"><kbd>A</kbd><kbd>D</kbd></span>
+                    <button type="button" class="orbit-btn flip" id="orbit-left" data-tt="rotate"><svg class="icon"><use href="#i-turn"/></svg></button>
+                    <button type="button" class="orbit-btn" id="orbit-right" data-tt="rotate"><svg class="icon"><use href="#i-turn"/></svg></button>
+                </div>
+            </div>
+
+            <div class="body" id="body"></div>
+
+            <footer class="foot">
+                <button type="button" class="btn btn-primary" id="confirm"><svg class="icon"><use href="#i-check"/></svg><span data-t="confirm">Confirm</span></button>
+                <button type="button" class="btn" id="cancel"><span data-t="cancel">Cancel</span></button>
+                <button type="button" class="btn btn-icon" id="save-outfit" data-tt="save_outfit"><svg class="icon"><use href="#i-bookmark-plus"/></svg></button>
+            </footer>
+        </aside>
+
+        <div class="modal" id="modal" hidden>
+            <div class="card">
+                <h2 class="card-title" data-t="outfit_name">Outfit name</h2>
+                <input type="text" class="text" id="outfit-name" maxlength="40" autocomplete="off" spellcheck="false">
+                <div class="card-foot">
+                    <button type="button" class="btn btn-primary" id="outfit-ok"><span data-t="confirm">Confirm</span></button>
+                    <button type="button" class="btn" id="outfit-cancel"><span data-t="cancel">Cancel</span></button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

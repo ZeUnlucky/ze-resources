@@ -10,26 +10,35 @@ QBCore.Commands.Add("exitprop", "test", {}, false, function(source)
 end)
 
 RegisterServerEvent("ze-interiors:EnterInterior", function(id, entrance)
-    SetEntityCoords(GetPlayerPed(source), Config.Houses[id].interior.exits[entrance])
-    SetEntityHeading(GetPlayerPed(source), Config.Houses[id].interior.exits[entrance][4])
-    SetPlayerRoutingBucket(source, id+5000)
-    SetRoutingBucketPopulationEnabled(id+5000, false)
-    exports['pma-voice']:updateRoutingBucket(source)
-    TriggerClientEvent("ze-interiors:ChangeInterior", source, id)
+    local house = Config.Houses[id]
+    -- the house can be gone (deleted while the client still had its door) or the entrance number can be wrong
+    if not house or not house.interior.exits[entrance] then return end
+
+    if house.locked then
+        QBCore.Functions.Notify(source, "Can't enter, house is locked!", "error", 5000)
+    else
+        SetEntityCoords(GetPlayerPed(source), house.interior.exits[entrance])
+        SetEntityHeading(GetPlayerPed(source), house.interior.exits[entrance][4])
+        SetPlayerRoutingBucket(source, Houses.Bucket(id))
+        SetRoutingBucketPopulationEnabled(Houses.Bucket(id), false)
+        TriggerClientEvent("ze-interiors:ChangeInterior", source, id)
+    end
 end)
 
 RegisterServerEvent("ze-interiors:ExitInterior", function(id, exit)
-    SetEntityCoords(GetPlayerPed(source), Config.Houses[id].entrances[exit])
-    SetEntityHeading(GetPlayerPed(source), Config.Houses[id].entrances[exit][4])
+    local house = Config.Houses[id]
+    if not house or not house.entrances[exit] then return end
+
+    SetEntityCoords(GetPlayerPed(source), house.entrances[exit])
+    SetEntityHeading(GetPlayerPed(source), house.entrances[exit][4])
     SetPlayerRoutingBucket(source, 0)
-    exports['pma-voice']:updateRoutingBucket(source)
     TriggerClientEvent("ze-interiors:ChangeInterior", source, 0)
 end)
 
 RegisterServerEvent("ze-interiors:OpenStash", function(id)
     local src = source
-    if id > 0 then
-        local stashID = "interiorStash"..id
+    if Config.Houses[id] then
+        local stashID = Houses.StashId(id)
         if not exports['qb-inventory']:GetInventory(stashID) then
             exports['qb-inventory']:CreateInventory(stashID, {
                 label = "House Stash",
@@ -38,5 +47,18 @@ RegisterServerEvent("ze-interiors:OpenStash", function(id)
             })
         end
         exports['qb-inventory']:OpenInventory(src, stashID)
+    end
+end)
+
+RegisterServerEvent("ze-interiors:ToggleLock", function(id)
+    local src = source -- the database call yields, and `source` is not reliable after that
+    local house = Config.Houses[id]
+    if house then
+        local ok, err = Houses.SetLocked(id, not house.locked)
+        if ok then
+            QBCore.Functions.Notify(src, "House is now " .. (house.locked and "locked" or "unlocked"), "success", 5000)
+        else
+            QBCore.Functions.Notify(src, err, "error", 5000)
+        end
     end
 end)

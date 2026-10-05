@@ -12,16 +12,9 @@ Config.Interiors = {
     }
 }
 
-Config.Houses = {
-    [1] = {
-        name = "Test house",
-        interior = Config.Interiors[1],
-        entrances = {
-            vector4(92.67, 49.22, 73.5, 73.0),
-            vector4(104.5, 57.1, 73.57, 353.5)
-        },
-        owner = "",
-        keyholders = {},
-        locked = false
-    }
-}
+-- The houses live in the ze_houses table (ze_houses.sql). The server fills this in at start (server/houses.lua) and syncs it to the clients.
+-- Config.Houses[id] = { name, interior, interiorId, entrances = { vector4 }, owner (citizenid or ""), keyholders = {}, locked }
+Config.Houses = {}
+
+Config.MenuCommand = "housemenu"
+Config.Job = "realestate"

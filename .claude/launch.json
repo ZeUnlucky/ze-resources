@@ -1,0 +1,15 @@
+﻿{
+    "version":  "0.0.1",
+    "configurations":  [
+                           {
+                               "port":  8765,
+                               "runtimeExecutable":  "powershell",
+                               "name":  "chat-preview",
+                               "runtimeArgs":  [
+                                                   "-NoProfile",
+                                                   "-File",
+                                                   "C:\\Users\\ZEUNLU~1\\AppData\\Local\\Temp\\claude\\C--Users-ZeUnlucky-Documents-FiveM-txData-QBCore-ED0BEA-base-resources--letr-\\a9c26792-4a07-4ef9-b1d4-9bb42776152e\\scratchpad\\serve.ps1"
+                                               ]
+                           }
+                       ]
+}

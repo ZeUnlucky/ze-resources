@@ -1,0 +1,272 @@
+/* ze-chat-theme: "Ember" look for the built-in chat.
+   The colour tokens below are shared with ze-hud / ze-inventory / ze-clothing: keep the :root blocks in sync.
+   NUI is an older Chromium: no color-mix(), :has(), nesting or backdrop-filter. */
+
+:root {
+    --accent: #ff7a1a;
+    --accent-rgb: 255, 122, 26;
+    --accent-2: #ffb62e;
+    --accent-ink: #1a0c02;
+    --accent-grad: linear-gradient(135deg, var(--accent), var(--accent-2));
+
+    --s1-rgb: 31, 28, 27;
+    --s2-rgb: 15, 13, 13;
+    --s3-rgb: 17, 15, 15;
+    --s4-rgb: 24, 21, 21;
+    --wash-rgb: 255, 240, 225;
+
+    --line: rgba(var(--wash-rgb), 0.08);
+    --line-2: rgba(var(--wash-rgb), 0.16);
+    --text: #f6f2ee;
+    --muted: #a39d97;
+    --faint: #6f6963;
+
+    --display: "Bahnschrift", "Segoe UI Semibold", "Segoe UI", system-ui, sans-serif;
+    --body: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+    --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+* {
+    font-family: var(--body);
+}
+
+/* ---------- window ---------- */
+
+.chat-window {
+    background: transparent !important;
+    box-shadow: none !important;
+    border: 0 !important;
+    left: 1.6vh;
+    top: 1.6vh;
+    width: 34vw !important;
+    min-width: 360px;
+    max-width: 640px;
+    height: 30vh !important;
+    overflow: hidden;
+    direction: ltr;
+    text-align: left;
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 7%, #000 100%);
+    mask-image: linear-gradient(to bottom, transparent 0, #000 7%, #000 100%);
+}
+
+.chat-messages {
+    margin: 0;
+    padding: 0.4vh 0.4vh 0 0;
+    height: 100%;
+    scrollbar-width: thin;
+}
+
+.chat-messages::-webkit-scrollbar { width: 5px; }
+.chat-messages::-webkit-scrollbar-track { background: transparent; }
+.chat-messages::-webkit-scrollbar-thumb {
+    background: rgba(var(--wash-rgb), 0.14);
+    border-radius: 9px;
+}
+
+/* ---------- messages ---------- */
+
+.msg {
+    --msg-accent: var(--accent);
+
+    position: relative;
+    box-sizing: border-box;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    direction: ltr;
+    text-align: left;
+    margin: 0 0 0.55vh 0;
+    padding: 0.65vh 1vh 0.65vh 1.4vh;
+    font-size: 1.55vh;
+    line-height: 1.38;
+    color: var(--text);
+    word-wrap: break-word;
+    overflow-wrap: anywhere;
+
+    background:
+        radial-gradient(90% 120% at 0% 0%, rgba(var(--accent-rgb), 0.08), transparent 70%),
+        linear-gradient(180deg, rgba(var(--s1-rgb), 0.92), rgba(var(--s2-rgb), 0.9));
+    border: 1px solid var(--line);
+    border-radius: 1vh;
+    box-shadow: 0 0.6vh 1.8vh rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(var(--wash-rgb), 0.04);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.55);
+
+    animation: ze-msg-in 0.24s var(--ease) both;
+}
+
+/* accent bar, tinted by theme.js from the message colour (Ember orange when none) */
+.msg::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0.55vh;
+    bottom: 0.55vh;
+    width: 0.38vh;
+    border-radius: 0 0.38vh 0.38vh 0;
+    background: var(--msg-accent);
+    box-shadow: 0 0 0.9vh var(--msg-accent);
+}
+
+/* author: never wider than its card, long names are cut with an ellipsis */
+.msg b {
+    display: inline-block;
+    max-width: 60%;
+    margin-right: 0.8vh;
+    overflow: hidden;
+    vertical-align: bottom;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--display);
+    font-size: 0.95em;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+}
+
+.msg b:empty { display: none; }
+
+/* the stock chat hangs the first line of named messages out to the left (.multiline: negative text-indent and a left margin) */
+.msg,
+.msg.multiline {
+    margin-left: 0 !important;
+    text-indent: 0 !important;
+}
+.msg *,
+.msg.multiline * { text-indent: 0 !important; }
+
+.msg > span > span > span { color: var(--text); }
+
+.msg i:first-of-type {
+    margin-right: 0.5vh;
+    font-style: normal;
+    font-size: 0.85em;
+    color: var(--faint);
+}
+
+@keyframes ze-msg-in {
+    from { opacity: 0; transform: translateX(-1.2vh); }
+    to   { opacity: 1; transform: none; }
+}
+
+/* ---------- input ---------- */
+
+.chat-input {
+    background: transparent !important;
+    left: 1.6vh;
+    top: calc(1.6vh + 30vh + 1vh) !important;
+    bottom: auto;
+    width: 34vw !important;
+    min-width: 360px;
+    max-width: 640px;
+}
+
+.chat-input > div:first-child {
+    display: flex;
+    align-items: center;
+    gap: 0.8vh;
+    padding: 0.8vh 1.2vh;
+    background:
+        radial-gradient(90% 140% at 0% 0%, rgba(var(--accent-rgb), 0.1), transparent 70%),
+        linear-gradient(180deg, rgba(var(--s1-rgb), 0.97), rgba(var(--s2-rgb), 0.97)) !important;
+    border: 1px solid var(--line) !important;
+    border-radius: 1.2vh;
+    box-shadow: 0 1.4vh 3.6vh rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(var(--wash-rgb), 0.04);
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.chat-input > div:first-child:focus-within {
+    border-color: rgba(var(--accent-rgb), 0.55) !important;
+    box-shadow: 0 0 0 1px rgba(var(--accent-rgb), 0.3),
+        0 0 2.4vh rgba(var(--accent-rgb), 0.22),
+        0 1.4vh 3.6vh rgba(0, 0, 0, 0.5);
+}
+
+.chat-input .prefix {
+    flex: none;
+    margin: 0;
+    padding: 0.25vh 0.95vh;
+    font-family: var(--display);
+    font-size: 1.25vh;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    line-height: 1.4;
+    color: var(--accent-ink);
+    background: var(--accent-grad);
+    border: 0;
+    border-radius: 99px;
+}
+
+.chat-input .prefix.any {
+    opacity: 1;
+    color: var(--muted);
+    background: rgba(var(--wash-rgb), 0.07);
+    box-shadow: inset 0 0 0 1px var(--line);
+}
+
+.chat-input .prefix.any:before,
+.chat-input .prefix.any:after { content: none; }
+
+textarea,
+.chat-input textarea {
+    flex: 1;
+    min-width: 0;
+    background: transparent !important;
+    border: 0;
+    outline: 0;
+    resize: none;
+    padding: 0.3vh 0.2vh;
+    font-size: 1.6vh;
+    color: var(--text);
+    caret-color: var(--accent);
+}
+
+textarea::placeholder { color: var(--faint); }
+
+/* ---------- suggestions ---------- */
+
+.chat-input > div + div {
+    position: static;
+    width: 100%;
+    margin-top: 0.7vh;
+    text-align: left;
+}
+
+.suggestions {
+    list-style: none;
+    padding: 0.5vh;
+    background: linear-gradient(180deg, rgba(var(--s4-rgb), 0.97), rgba(var(--s3-rgb), 0.97));
+    border: 1px solid var(--line);
+    border-radius: 1.1vh;
+    box-shadow: 0 1.4vh 3.6vh rgba(0, 0, 0, 0.5);
+}
+
+.suggestion {
+    margin: 0;
+    padding: 0.5vh 0.8vh;
+    border-radius: 0.7vh;
+    font-size: 1.4vh;
+    color: var(--text);
+}
+
+.suggestion:first-child {
+    background: rgba(var(--accent-rgb), 0.12);
+    box-shadow: inset 0 0 0 1px rgba(var(--accent-rgb), 0.22);
+}
+
+.suggestion:first-child > span:first-child { color: var(--accent-2); }
+
+.suggestion .help {
+    display: block;
+    margin-top: 0.15vh;
+    font-size: 1.15vh;
+    color: var(--muted);
+}
+
+.suggestion .disabled,
+.suggestion .param,
+.suggestion .param-help { color: var(--faint); }
+
+@media screen and (min-aspect-ratio: 21/9) {
+    .chat-window,
+    .chat-input { left: 12.8vw; }
+}

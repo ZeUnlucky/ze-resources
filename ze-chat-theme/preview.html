@@ -1,0 +1,84 @@
+<!doctype html>
+<!-- Static mock of the system chat DOM plus layout tests, for eyeballing the theme in a browser. Not loaded by the resource.
+     Open it served over http (file:// won't load the relative css). The result of the tests is in the banner and the console. -->
+<meta charset="utf-8">
+<link rel="stylesheet" href="style.css">
+<style>
+    html, body { margin: 0; height: 100%; overflow: hidden; }
+    body { background: linear-gradient(135deg, #3a4a5e, #1c2230 60%, #2b3a2e); font: 12px Consolas, monospace; }
+    /* the tests render in a taller window than the game uses, so every case is visible */
+    .chat-window { height: 78vh !important; }
+    .chat-input { top: calc(1.6vh + 78vh + 1vh) !important; }
+    /* stand-in for the stock chat css that the theme has to win against (it hangs the first line out to the left) */
+    .multiline { margin-left: 5%; text-indent: -1.5%; }
+    #banner { position: fixed; right: 12px; bottom: 12px; width: 300px; padding: 10px 12px; border-radius: 8px; background: rgba(0,0,0,.7); color: #fff; }
+    #banner b.pass { color: #34d399; } #banner b.fail { color: #ff5d7a; }
+    #banner div { margin-top: 3px; }
+</style>
+<body>
+<div class="chat-window">
+    <div class="chat-messages" id="msgs"></div>
+</div>
+<div class="chat-input">
+    <div><span class="prefix">say</span><textarea placeholder="Type a message or /command">/hel</textarea></div>
+    <div>
+        <ul class="suggestions">
+            <li class="suggestion"><span>/help</span> <span class="param">[topic]</span><span class="help">Show help</span></li>
+            <li class="suggestion"><span>/heal</span><span class="help">Heal yourself</span></li>
+        </ul>
+    </div>
+</div>
+<div id="banner">running tests...</div>
+
+<script>
+    // [name, colour, author, text]
+    var CASES = [
+        ['plain',                 'rgb(255,255,255)', 'Server', 'Welcome to left-trigger!'],
+        ['admin tag',             'rgb(255,80,80)',   '[Admin] ZeUnlucky', 'Restart in 10 minutes.'],
+        ['long name',             'rgb(90,200,140)',  'ZeUnluckyTheGreatAndTerribleOfLeftTrigger', 'hello'],
+        ['unbroken huge name',    'rgb(120,170,255)', 'ZEUNLUCKYZEUNLUCKYZEUNLUCKYZEUNLUCKYZEUNLUCKYZEUNLUCKY', 'hi'],
+        ['wide capitals + tag',   'rgb(255,200,60)',  '[OOC] WWWWWWWWWWWWWWWWWW', 'wide glyphs'],
+        ['unbroken long text',    'rgb(255,255,255)', 'Noam', 'a'.repeat(160)],
+        ['wrapping text',         'rgb(255,255,255)', 'Noam', 'a very long message that wraps onto a second line so we can check how wrapping and padding behave inside the card'],
+        ['no author',             'rgb(255,255,255)', '', 'a system line with an empty author'],
+        ['emoji / unicode',       'rgb(255,255,255)', 'זיו 🚀', 'שלום עולם 😀'],
+        ['html is inert',         'rgb(255,255,255)', '&lt;b&gt;x&lt;/b&gt;', '&lt;script&gt;1&lt;/script&gt;']
+    ];
+
+    var msgs = document.getElementById('msgs');
+    CASES.forEach(function (c) {
+        var d = document.createElement('div');
+        d.className = c[2] ? 'msg multiline' : 'msg';
+        d.dataset.case = c[0];
+        d.innerHTML = '<span><span style="color:' + c[1] + '"><b>' + c[2] + '</b><span>' + c[3] + '</span></span></span>';
+        msgs.appendChild(d);
+    });
+</script>
+<script src="theme.js"></script>
+<script>
+    // layout tests: nothing may leave its card, the name never takes more than the card, the accent is tinted
+    setTimeout(function () {
+        var win = document.querySelector('.chat-window').getBoundingClientRect();
+        var results = [];
+        function check(name, ok, detail) { results.push([name, ok, detail || '']); }
+
+        document.querySelectorAll('.msg').forEach(function (m) {
+            var n = m.dataset.case, r = m.getBoundingClientRect(), b = m.querySelector('b'), br = b.getBoundingClientRect();
+            check(n + ': card inside window', r.left >= win.left - 1 && r.right <= win.right + 1, Math.round(r.left) + '..' + Math.round(r.right));
+            check(n + ': no horizontal overflow', m.scrollWidth <= m.clientWidth + 1, m.scrollWidth + ' > ' + m.clientWidth);
+            check(n + ': name inside card', br.width === 0 || (br.left >= r.left && br.right <= r.right), Math.round(br.left) + '..' + Math.round(br.right));
+            check(n + ': name starts clear of the accent bar', br.width === 0 || br.left >= r.left + 8,Math.round(br.left - r.left) + 'px in');
+            check(n + ': card flush with the others', Math.abs(r.left - win.left) < 12, Math.round(r.left - win.left) + 'px from window');
+            check(n + ': name not wider than 60% of card', br.width <= r.width * 0.6 + 1, Math.round(br.width) + ' / ' + Math.round(r.width));
+        });
+
+        var red = document.querySelector('[data-case="admin tag"]');
+        check('accent tinted from message colour', red.style.getPropertyValue('--msg-accent') === 'rgb(255,80,80)', red.style.getPropertyValue('--msg-accent'));
+
+        var failed = results.filter(function (r) { return !r[1]; });
+        var banner = document.getElementById('banner');
+        banner.innerHTML = '<b class="' + (failed.length ? 'fail' : 'pass') + '">' + (results.length - failed.length) + '/' + results.length + ' passed</b>' +
+            failed.map(function (r) { return '<div>FAIL ' + r[0] + ' (' + r[2] + ')</div>'; }).join('');
+        results.forEach(function (r) { console.log((r[1] ? 'PASS ' : 'FAIL ') + r[0] + ' ' + r[2]); });
+    }, 600);
+</script>

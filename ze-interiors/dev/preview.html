@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ze-interiors preview</title>
+<style>
+    /* Dev only: runs the real NUI in an iframe and fakes what client/menu.lua and server/menu.lua answer.
+       Serve the resources folder over http (dev/serve.ps1) and open this page. Not part of files{}. */
+    html, body { margin: 0; height: 100%; background: #0b0e13; overflow: hidden; font: 12px/1.3 "Segoe UI", sans-serif; color: #cfd6e2; }
+    .scene {
+        position: fixed; inset: 0;
+        background: linear-gradient(180deg, rgba(40, 60, 90, 0.9) 0%, rgba(90, 100, 110, 0.7) 55%, rgba(30, 32, 36, 1) 56%, rgba(24, 26, 30, 1) 100%);
+    }
+    iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; z-index: 1; background: transparent; }
+    #ctl {
+        position: fixed; z-index: 5; top: 8px; left: 8px; width: 230px; padding: 8px; border-radius: 10px;
+        background: rgba(10, 12, 16, 0.92); border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    #ctl h3 { margin: 0 0 6px; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #ff7a1a; }
+    #ctl button {
+        margin: 2px 2px 0 0; padding: 4px 7px; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 6px;
+        background: #1b2029; color: #edf0f5; cursor: pointer; font: inherit;
+    }
+    #ctl button:hover { border-color: #ff7a1a; }
+    #ctl hr { border: 0; border-top: 1px solid rgba(255, 255, 255, 0.1); margin: 6px 0; }
+    #log { margin-top: 6px; max-height: 120px; overflow: hidden; color: #8a94a6; font: 11px/1.35 Consolas, monospace; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<div class="scene"></div>
+<iframe id="nui" src="../html/index.html"></iframe>
+
+<div id="ctl">
+    <h3>ze-interiors preview</h3>
+    <button data-s="open">Open menu</button>
+    <button data-s="empty">Open, no houses</button>
+    <hr>
+    <button data-s="fail">Actions fail: <span id="fl">off</span></button>
+    <div id="log"></div>
+</div>
+
+<script>
+(() => {
+    const nui = document.getElementById('nui');
+    const logEl = document.getElementById('log');
+    const lines = [];
+    let fail = false;
+
+    // ---- fake data, shaped like server/menu.lua builds it
+    const interiors = [
+        { id: 1, name: 'Test', exits: 2 },
+        { id: 2, name: 'Low End Apartment', exits: 1 },
+        { id: 3, name: 'Modern Mansion with a long name', exits: 3 },
+        { id: 4, name: 'Garage Flat', exits: 2 },
+    ];
+    let houses = [
+        { id: 1, name: 'Test house', interiorName: 'Test', entrances: 2, owner: '', locked: false },
+        { id: 2, name: 'Vinewood Hills 12', interiorName: 'Modern Mansion with a long name', entrances: 3, owner: 'ABC12345', ownerName: 'Marcus Webb', locked: true },
+        { id: 3, name: 'Grove Street Flat', interiorName: 'Low End Apartment', entrances: 1, owner: 'XYZ98765', ownerName: 'Dana Holloway', locked: false },
+        { id: 4, name: 'Mirror Park Garage Flat', interiorName: 'Garage Flat', entrances: 2, owner: '', locked: true },
+    ];
+    let nextId = 5;
+
+    function log(text) {
+        lines.unshift(text);
+        lines.length = Math.min(lines.length, 7);
+        logEl.textContent = lines.join('\n');
+    }
+    function send(msg) { nui.contentWindow.postMessage(msg, '*'); }
+
+    const PLAYERS = { 1: { name: 'Marcus Webb', citizenid: 'ABC12345' }, 7: { name: 'Dana Holloway', citizenid: 'XYZ98765' }, 12: { name: 'Eli Park', citizenid: 'QWE55512' } };
+
+    // ---- the fake Lua: the same replies client/menu.lua + server/menu.lua give
+    function mockPost(name, d) {
+        log(name + ' ' + JSON.stringify(d));
+        switch (name) {
+            case 'getData': return { interiors, houses };
+            case 'getPosition': return { x: 92.67 + Math.random(), y: 49.22, z: 73.5, w: 73.0 };
+            case 'lookupPlayer': {
+                const p = PLAYERS[d.id];
+                return new Promise((r) => setTimeout(() => r(p ? { ok: true, name: p.name, citizenid: p.citizenid } : { ok: false, error: 'No player with that ID is online' }), 250));
+            }
+            case 'createHouse': {
+                if (fail) return { ok: false, error: 'Not implemented yet' };
+                const it = interiors.find((i) => i.id === d.interior);
+                houses = houses.concat({ id: nextId++, name: d.name, interiorName: it.name, entrances: d.entrances.length, owner: '', locked: false });
+                return { ok: true };
+            }
+            case 'sellHouse': {
+                if (fail) return { ok: false, error: 'Not implemented yet' };
+                const p = PLAYERS[d.player];
+                houses = houses.map((h) => (String(h.id) === String(d.house) ? { ...h, owner: p.citizenid, ownerName: p.name } : h));
+                return { ok: true, message: 'House sold to ' + p.name };
+            }
+            case 'deleteHouse':
+                if (fail) return { ok: false, error: 'Not implemented yet' };
+                houses = houses.filter((h) => String(h.id) !== String(d.house));
+                return { ok: true };
+            default: return 'ok';
+        }
+    }
+    nui.addEventListener('load', () => { nui.contentWindow.ZE_POST = mockPost; });
+
+    const scenes = {
+        open: () => send({ action: 'open', interiors, houses, accent: '#ff7a1a' }),
+        empty: () => { houses = []; send({ action: 'open', interiors, houses }); },
+    };
+
+    document.getElementById('ctl').addEventListener('click', (e) => {
+        const s = e.target.dataset && e.target.dataset.s;
+        if (!s) return;
+        if (s === 'fail') { fail = !fail; document.getElementById('fl').textContent = fail ? 'on' : 'off'; return; }
+        if (scenes[s]) scenes[s]();
+    });
+
+    // preview.html?fit=1080 renders the NUI in a real 1920x1080 frame, scaled to fit this window (the menu scales with screen height)
+    const fit = Number(new URLSearchParams(location.search).get('fit'));
+    function layoutFit() {
+        if (!(fit > 0) || !innerWidth || !innerHeight) return;
+        const w = Math.round(fit * 16 / 9);
+        const scale = Math.min(innerWidth / w, innerHeight / fit);
+        nui.style.cssText = `position:fixed;left:0;top:0;width:${w}px;height:${fit}px;border:0;z-index:1;background:transparent;transform-origin:0 0;transform:scale(${scale})`;
+    }
+    layoutFit();
+    window.addEventListener('resize', layoutFit);
+    window.addEventListener('load', layoutFit);
+
+    // open straight away when a scene is named in the address: preview.html#open
+    nui.addEventListener('load', () => {
+        const s = location.hash.slice(1);
+        if (scenes[s]) setTimeout(scenes[s], 200);
+    });
+})();
+</script>
+</body>
+</html>

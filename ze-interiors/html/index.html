@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>ze-interiors</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Icon sprite. 24x24, stroked with currentColor. -->
+    <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+        <symbol id="i-home" viewBox="0 0 24 24"><path d="M3.5 11 12 4l8.5 7"/><path d="M5.5 9.6V20h13V9.6"/><path d="M10 20v-5.5h4V20"/></symbol>
+        <symbol id="i-list" viewBox="0 0 24 24"><path d="M5 6h14M5 12h14M5 18h9"/></symbol>
+        <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+        <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3.5 12.3V4.5a1 1 0 0 1 1-1h7.8l8.2 8.2a1.4 1.4 0 0 1 0 2l-6.8 6.8a1.4 1.4 0 0 1-2 0z"/><circle cx="8" cy="8" r="1.4"/></symbol>
+        <symbol id="i-trash" viewBox="0 0 24 24"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/></symbol>
+        <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5 5"/></symbol>
+        <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></symbol>
+        <symbol id="i-door" viewBox="0 0 24 24"><path d="M6 21V4.5A1.5 1.5 0 0 1 7.5 3h9A1.5 1.5 0 0 1 18 4.5V21"/><path d="M3.5 21h17"/><circle cx="14.5" cy="12.5" r="0.8"/></symbol>
+        <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-7 8-7s8 2.6 8 7"/></symbol>
+        <symbol id="i-lock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></symbol>
+        <symbol id="i-unlock" viewBox="0 0 24 24"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 7.6-1.7"/></symbol>
+        <symbol id="i-check" viewBox="0 0 24 24"><path d="m5 12.5 4.5 4.5L19 7.5"/></symbol>
+        <symbol id="i-x" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></symbol>
+        <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 4 2.8 19.5h18.4z"/><path d="M12 10v4.5M12 17.3v.1"/></symbol>
+        <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    </svg>
+
+    <div class="app" id="app" hidden>
+        <section class="panel" id="panel">
+            <header class="panel-head">
+                <div class="panel-icon"><svg class="icon"><use href="#i-home"/></svg></div>
+                <div class="panel-titles">
+                    <h1 class="panel-title">House manager</h1>
+                    <p class="panel-sub" id="subtitle"></p>
+                </div>
+                <button type="button" class="close" id="close" title="Close"><svg class="icon"><use href="#i-x"/></svg></button>
+            </header>
+
+            <nav class="tabs" id="tabs">
+                <button type="button" class="tab on" data-tab="houses"><svg class="icon"><use href="#i-list"/></svg><span>Houses</span></button>
+                <button type="button" class="tab" data-tab="add"><svg class="icon"><use href="#i-plus"/></svg><span>Add house</span></button>
+                <button type="button" class="tab" data-tab="sell"><svg class="icon"><use href="#i-tag"/></svg><span>Sell house</span></button>
+            </nav>
+
+            <!-- ============ Houses ============ -->
+            <div class="body" id="pane-houses">
+                <div class="search">
+                    <svg class="icon"><use href="#i-search"/></svg>
+                    <input type="text" id="search" placeholder="Search by name, interior or owner" maxlength="60" autocomplete="off" spellcheck="false">
+                </div>
+                <div id="house-list"></div>
+            </div>
+
+            <!-- ============ Add house ============ -->
+            <div class="body" id="pane-add" hidden>
+                <div class="group-title">House</div>
+                <label class="field">
+                    <span class="field-cap">House name</span>
+                    <input type="text" class="text" id="add-name" placeholder="e.g. Vinewood Hills 12" maxlength="40" autocomplete="off" spellcheck="false">
+                </label>
+
+                <div class="group-title">Interior</div>
+                <div class="interiors" id="add-interiors"></div>
+
+                <div class="group-title" id="entrances-title">Entrances</div>
+                <p class="hint" id="entrances-hint"></p>
+                <div id="add-entrances"></div>
+            </div>
+
+            <!-- ============ Sell house ============ -->
+            <div class="body" id="pane-sell" hidden>
+                <div class="group-title">House</div>
+                <div class="select">
+                    <select class="text" id="sell-house"></select>
+                    <svg class="icon"><use href="#i-down"/></svg>
+                </div>
+                <div class="sell-info" id="sell-info"></div>
+
+                <div class="group-title">Buyer</div>
+                <label class="field">
+                    <span class="field-cap">Player ID</span>
+                    <input type="number" class="text" id="sell-player" placeholder="Server ID of the buyer" min="1" step="1" autocomplete="off">
+                </label>
+                <div class="lookup" id="sell-lookup"></div>
+            </div>
+
+            <footer class="foot" id="foot">
+                <button type="button" class="btn btn-primary" id="submit"><svg class="icon"><use href="#i-check"/></svg><span id="submit-label">Confirm</span></button>
+                <button type="button" class="btn" id="reset">Clear</button>
+                <span class="status" id="status"></span>
+            </footer>
+        </section>
+
+        <div class="modal" id="modal" hidden>
+            <div class="card">
+                <div class="card-icon"><svg class="icon"><use href="#i-alert"/></svg></div>
+                <h2 class="card-title" id="modal-title">Delete house?</h2>
+                <p class="card-text" id="modal-text"></p>
+                <div class="card-foot">
+                    <button type="button" class="btn btn-danger" id="modal-ok"><svg class="icon"><use href="#i-trash"/></svg><span>Delete</span></button>
+                    <button type="button" class="btn" id="modal-cancel">Cancel</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="toasts" id="toasts"></div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

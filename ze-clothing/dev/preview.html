@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ze-clothing preview</title>
+<style>
+    /* Dev only: runs the real NUI in an iframe and fakes what client/main.lua and the server answer.
+       Serve the resources folder over http (see README.md) and open this page. Not part of files{}. */
+    html, body { margin: 0; height: 100%; background: #0b0e13; overflow: hidden; font: 12px/1.3 "Segoe UI", sans-serif; color: #cfd6e2; }
+    .scene {
+        position: fixed; inset: 0;
+        background: linear-gradient(180deg, rgba(40, 60, 90, 0.9) 0%, rgba(90, 100, 110, 0.7) 55%, rgba(30, 32, 36, 1) 56%, rgba(24, 26, 30, 1) 100%);
+    }
+    .ped { /* where the character stands, to judge the panel against */
+        position: fixed; left: 42%; bottom: 14%; width: 9vh; height: 46vh; transform: translateX(-50%);
+        border-radius: 4vh 4vh 1vh 1vh; background: linear-gradient(180deg, #3b4350, #262b33); opacity: 0.8;
+    }
+    .ped::before { content: ""; position: absolute; left: 50%; top: -5.5vh; width: 6vh; height: 6vh; transform: translateX(-50%); border-radius: 50%; background: #3b4350; }
+    iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; z-index: 1; background: transparent; }
+    #ctl {
+        position: fixed; z-index: 5; top: 8px; left: 8px; width: 230px; padding: 8px; border-radius: 10px;
+        background: rgba(10, 12, 16, 0.92); border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    #ctl h3 { margin: 0 0 6px; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #ff7a1a; }
+    #ctl button {
+        margin: 2px 2px 0 0; padding: 4px 7px; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 6px;
+        background: #1b2029; color: #edf0f5; cursor: pointer; font: inherit;
+    }
+    #ctl button:hover { border-color: #ff7a1a; }
+    #ctl hr { border: 0; border-top: 1px solid rgba(255, 255, 255, 0.1); margin: 6px 0; }
+    #log { margin-top: 6px; max-height: 120px; overflow: hidden; color: #8a94a6; font: 11px/1.35 Consolas, monospace; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<div class="scene"></div>
+<div class="ped"></div>
+<iframe id="nui" src="../html/index.html"></iframe>
+
+<div id="ctl">
+    <h3>ze-clothing preview</h3>
+    <button data-s="full">Wardrobe</button>
+    <button data-s="clothing">Clothing store</button>
+    <button data-s="barber">Barber</button>
+    <button data-s="surgeon">Surgeon</button>
+    <hr>
+    <button data-s="outfits">Outfit changer</button>
+    <button data-s="room">Locker room</button>
+    <hr>
+    <button data-s="tracker">Tracker: <span id="trk">off</span></button>
+    <button data-s="noswitch">Model switch: <span id="sw">on</span></button>
+    <div id="log"></div>
+</div>
+
+<script>
+(() => {
+    const nui = document.getElementById('nui');
+    const logEl = document.getElementById('log');
+    const lines = [];
+    let tracker = false, modelSwitch = true;
+
+    // ---- a fake skin: the same keys and ranges client/skin.lua reports (comps/props/overlays differ per ped in-game)
+    const R = (min, max, tex, texMin) => ({ min, max, tex, texMin: texMin || 0 });
+    const FEATURES = ['nose_0', 'nose_1', 'nose_2', 'nose_3', 'nose_4', 'nose_5', 'eyebrown_high', 'eyebrown_forward', 'cheek_1', 'cheek_2', 'cheek_3',
+        'eye_opening', 'lips_thickness', 'jaw_bone_width', 'jaw_bone_back_lenght', 'chimp_bone_lowering', 'chimp_bone_lenght', 'chimp_bone_width', 'chimp_hole', 'neck_thikness'];
+    const LIM = {
+        face: R(0, 45, 45), face2: R(0, 45, 45),
+        hair: R(0, 73, 63), eyebrows: R(-1, 33, 63), beard: R(-1, 28, 63), blush: R(-1, 6, 63), lipstick: R(-1, 9, 63),
+        makeup: R(-1, 74, 63), ageing: R(-1, 14, null), moles: R(-1, 17, 10), eye_color: R(-1, 31, null),
+        arms: R(0, 167, 2), 't-shirt': R(1, 200, 12), torso2: R(0, 350, 20), vest: R(0, 30, 5), decals: R(0, 50, 3),
+        accessory: R(0, 150, 4), bag: R(0, 100, 8), pants: R(0, 120, 10), shoes: R(1, 100, 8),
+        mask: R(0, 200, 8), hat: R(0, 150, 10), glass: R(0, 40, 8), ear: R(0, 30, 4), watch: R(0, 40, 6), bracelet: R(0, 10, 2),
+    };
+    FEATURES.forEach((k) => { LIM[k] = R(-10, 10, null); });
+    const DEFAULTS = { 't-shirt': 1, shoes: 1, eyebrows: -1, beard: -1, blush: -1, lipstick: -1, makeup: -1, ageing: -1, eye_color: -1, moles: -1 };
+    const data = {};
+    Object.keys(LIM).forEach((k) => { data[k] = { item: DEFAULTS[k] !== undefined ? DEFAULTS[k] : 0, texture: 0 }; });
+    data.facemix = { shapeMix: 0.5, skinMix: 0.5 };
+    data.torso2 = { item: 12, texture: 3 };
+    data.pants = { item: 24, texture: 1 };
+    data.hair = { item: 5, texture: 4 };
+    data.nose_0 = { item: 3, texture: 0 };
+
+    const describe = (k) => {
+        if (k === 'facemix') return { ...data.facemix };
+        const l = LIM[k], e = data[k];
+        return { item: Math.max(e.item, l.min), texture: e.texture, minItem: l.min, maxItem: l.max, hasTexture: l.tex !== null, minTexture: 0, maxTexture: l.tex || 0 };
+    };
+    const describeAll = () => Object.fromEntries(Object.keys(data).map((k) => [k, describe(k)]));
+
+    const MODELS = ['mp_m_freemode_01', 'a_m_m_beach_01', 'a_m_m_bevhills_01', 'a_m_y_runner_01'];
+    let model = 1;
+    const modelInfo = () => ({ index: model, name: MODELS[model - 1], count: MODELS.length });
+
+    let mine = [
+        { outfitname: 'Work clothes', outfitId: 'outfit-3-1234', skin: '{}' },
+        { outfitname: 'Night out with a very long outfit name that has to be cut', outfitId: 'outfit-8-4821', skin: '{}' },
+    ];
+    const presets = [{ outfitLabel: 'Short Sleeve', outfitData: {} }, { outfitLabel: 'Trooper Tan', outfitData: {} }];
+
+    function log(text) {
+        lines.unshift(text);
+        lines.length = Math.min(lines.length, 7);
+        logEl.textContent = lines.join('\n');
+    }
+
+    function send(msg) { nui.contentWindow.postMessage(msg, '*'); }
+
+    const tr = {}; // empty: the NUI's own English text is what shows
+
+    // ---- the fake Lua: the same replies client/main.lua gives
+    function mockPost(name, d) {
+        log(name + ' ' + JSON.stringify(d));
+        switch (name) {
+            case 'updateSkin': {
+                const k = d.clothingType;
+                if (!data[k]) return {};
+                if (k === 'accessory' && tracker) return describe(k);
+                if (k === 'facemix') { data.facemix[d.type] = Math.min(1, Math.max(0, d.articleNumber)); return describe(k); }
+                const l = LIM[k], e = data[k];
+                if (d.type === 'item') {
+                    let v = Math.round(d.articleNumber);
+                    if (k === 'accessory' && v === 13) v = e.item < 13 ? 14 : 12;
+                    e.item = Math.min(l.max, Math.max(l.min, v));
+                    e.texture = k === 'moles' ? 10 : (DEFAULTS[k] !== undefined && l.tex ? 1 : 0);
+                } else if (l.tex !== null) {
+                    e.texture = Math.min(l.tex, Math.max(0, Math.round(d.articleNumber)));
+                }
+                return describe(k);
+            }
+            case 'setCurrentPed':
+                model = Math.min(MODELS.length, Math.max(1, d.ped));
+                setTimeout(() => send({ action: 'values', values: describeAll(), model: modelInfo() }), 150);
+                return modelInfo();
+            case 'removeOutfit':
+                mine = mine.filter((o) => o.outfitId !== d.outfitId);
+                setTimeout(() => send({ action: 'outfits', outfits: mine }), 80);
+                return 'ok';
+            case 'saveOutfit':
+                mine.push({ outfitname: d.outfitName, outfitId: 'outfit-1-' + (1000 + mine.length), skin: '{}' });
+                setTimeout(() => send({ action: 'outfits', outfits: mine }), 80);
+                return 'ok';
+            case 'close':
+                log('closed, save=' + d.save);
+                return 'ok';
+            default:
+                return 'ok';
+        }
+    }
+    nui.addEventListener('load', () => { nui.contentWindow.ZE_POST = mockPost; });
+
+    const menu = (id, label, selected, outfits) => ({ menu: id, label, selected: !!selected, outfits });
+    const open = (title, menus) => send({
+        action: 'open', title, menus, values: describeAll(), hasTracker: tracker,
+        modelSwitch, model: modelInfo(), tr, accent: '#ff7a1a',
+    });
+
+    const scenes = {
+        full: () => open('Wardrobe', [menu('features', 'Features', true), menu('hair', 'Hair & Face'), menu('clothing', 'Clothing'), menu('accessories', 'Accessories')]),
+        clothing: () => open('Clothing store', [menu('clothing', 'Clothing', true), menu('accessories', 'Accessories')]),
+        barber: () => open('Barbershop', [menu('hair', 'Hair & Face', true)]),
+        surgeon: () => open('Plastic Surgeon', [menu('features', 'Features', true)]),
+        outfits: () => open('Outfit Changer', [menu('outfits', 'My Outfits', true, mine)]),
+        room: () => open('Locker Room', [menu('presets', 'Presets', true, presets), menu('outfits', 'My Outfits', false, mine), menu('clothing', 'Clothing'), menu('accessories', 'Accessories')]),
+    };
+
+    document.getElementById('ctl').addEventListener('click', (e) => {
+        const s = e.target.dataset && e.target.dataset.s;
+        if (!s) return;
+        if (s === 'tracker') { tracker = !tracker; document.getElementById('trk').textContent = tracker ? 'on' : 'off'; return; }
+        if (s === 'noswitch') { modelSwitch = !modelSwitch; document.getElementById('sw').textContent = modelSwitch ? 'on' : 'off'; return; }
+        if (scenes[s]) scenes[s]();
+    });
+
+    // preview.html?fit=1080 renders the NUI in a real 1920x1080 frame, scaled to fit this window (the menu scales with screen height)
+    const fit = Number(new URLSearchParams(location.search).get('fit'));
+    function layoutFit() {
+        if (!(fit > 0) || !innerWidth || !innerHeight) return;
+        const w = Math.round(fit * 16 / 9);
+        const scale = Math.min(innerWidth / w, innerHeight / fit);
+        nui.style.cssText = `position:fixed;left:0;top:0;width:${w}px;height:${fit}px;border:0;z-index:1;background:transparent;transform-origin:0 0;transform:scale(${scale})`;
+    }
+    layoutFit();
+    window.addEventListener('resize', layoutFit);
+    window.addEventListener('load', layoutFit);
+
+    // open straight away when a scene is named in the address: preview.html#room
+    nui.addEventListener('load', () => {
+        const s = location.hash.slice(1);
+        if (scenes[s]) setTimeout(scenes[s], 200);
+    });
+})();
+</script>
+</body>
+</html>
