@@ -18,12 +18,21 @@ The menu has three tabs:
 | --- | --- |
 | `html/` | The menu UI. |
 | `client/menu.lua` | Opens the NUI and relays each NUI callback to the server. |
-| `client/client.lua` | qb-target zones. House doors are rebuilt when the server syncs a house. |
+| `client/client.lua` | qb-target zones and the owner's map blips (green house icon on the first entrance, only on the owner's own map). Doors and blips are rebuilt when the server syncs a house, and the blips again when a character loads or logs out. |
 | `server/houses.lua` | Loads `ze_houses`, and the only place that writes to it: `Houses.Create / SetOwner / SetLocked / Delete`. Syncs every change to the clients. |
 | `server/menu.lua` | The command, the permission check and the menu callbacks (validation, then a call into `Houses`). |
 | `server/server.lua` | Enter, exit, stash and lock events. Locking is saved. |
+| `server/keys.lua` | The `/givekeys` command (see below). Not connected to the menu. |
 
 What the actions do besides the table: **selling** sets the owner and clears the keyholders, and notifies the buyer. **Deleting** puts anyone still inside back on the first entrance, then empties the stash (`interiorStash<id>`) and removes it from the inventory. `ownerName` in `getData` is read from the `players` table, so it also works for offline owners.
+
+## Keys
+
+The owner of a house gives a friend a key with `/givekeys [player id] [house id]`. The house id is optional: without it the house is the one the owner is inside, or the nearest entrance of theirs within 5 m, or their only house. Rules, all checked on the server: only the owner can give keys (a keyholder cannot pass them on), the friend has to be online, within 5 m and in the same routing bucket, and a player who already has a key is refused.
+
+A key is the friend's citizenid in the `keyholders` JSON array of the house's row in `ze_houses`. `Houses.AddKeyholder(id, citizenid)` saves it first and only then changes `Config.Houses` and syncs the clients, so a database failure leaves nothing half done. Selling the house still clears the keyholders.
+
+`/takekeys [player id | all] [house id]` takes a key back, with the same house rules as `/givekeys`. A player id removes that friend's key (they have to be online but not nearby); `all` removes every key of the house, which is how a friend who is offline loses theirs. `Houses.RemoveKeyholders(id, citizenid)` does the database write the same way (citizenid `nil` = all keys). A keyholder sees Lock Doors / Unlock Doors on the front door like the owner does; the server sends `keyholders` to the clients for that.
 
 ## Contract
 

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>ze-phone</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="apps.css">
+</head>
+<body>
+    <div id="stage">
+        <div id="banners"></div>
+
+        <div id="camhint" hidden>
+            <span><kbd>Enter</kbd> Take photo</span>
+            <span><kbd>&uarr;</kbd> Flip camera</span>
+            <span><kbd>Backspace</kbd> Cancel</span>
+        </div>
+
+        <div id="phone" class="phone" data-state="hidden">
+            <div class="pbody">
+                <i class="side s1"></i><i class="side s2"></i><i class="side s3"></i>
+                <div id="screen" class="screen">
+                    <div id="wall" class="wall"></div>
+                    <div id="home" class="layer home"></div>
+                    <div id="apps" class="layer apps"></div>
+                    <div id="callview" class="layer callview" hidden></div>
+                    <div id="shade" class="layer shade"></div>
+                    <div id="overlay" class="layer overlay"></div>
+                    <div id="statusbar" class="statusbar"></div>
+                    <div id="homebar" class="homebar"><i></i></div>
+                    <div id="dim" class="dim"></div>
+                </div>
+                <div class="glare"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/icons.js"></script>
+    <script src="js/core.js"></script>
+    <script src="js/ui.js"></script>
+    <script src="js/shell.js"></script>
+    <script src="js/calls.js"></script>
+    <script src="js/apps/phone.js"></script>
+    <script src="js/apps/messages.js"></script>
+    <script src="js/apps/settings.js"></script>
+    <script src="js/apps/twitter.js"></script>
+    <script src="js/apps/mail.js"></script>
+    <script src="js/apps/bank.js"></script>
+    <script src="js/apps/crypto.js"></script>
+    <script src="js/apps/vehicles.js"></script>
+    <script src="js/apps/houses.js"></script>
+    <script src="js/apps/racing.js"></script>
+    <script src="js/apps/services.js"></script>
+    <script src="js/apps/ads.js"></script>
+    <script src="js/apps/gallery.js"></script>
+    <script src="js/apps/maps.js"></script>
+    <script src="js/apps/notes.js"></script>
+    <script src="js/apps/clock.js"></script>
+    <script src="js/apps/calculator.js"></script>
+    <script src="js/apps/mdt.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

@@ -28,7 +28,8 @@ server_scripts {
     '@oxmysql/lib/MySQL.lua',
     'server/houses.lua',
     'server/server.lua',
-    'server/menu.lua'
+    'server/menu.lua',
+    'server/keys.lua'
 }
 
 shared_scripts {

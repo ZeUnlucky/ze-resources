@@ -13,6 +13,69 @@ local function removeHouseZones(id)
     houseZones[id] = nil
 end
 
+-- Map blips are local to each client, so a blip only exists for the player who owns the house (keyholders do not get one).
+-- houseBlips[id] = blip handle; it sits on the first entrance.
+local houseBlips = {}
+
+local function removeHouseBlip(id)
+    if houseBlips[id] then
+        RemoveBlip(houseBlips[id])
+        houseBlips[id] = nil
+    end
+end
+
+local function addHouseBlip(id)
+    removeHouseBlip(id)
+
+    local house = Config.Houses[id]
+    if not house or house.owner == '' or house.owner ~= QBCore.Functions.GetPlayerData().citizenid then return end
+
+    local door = house.entrances[1]
+    local blip = AddBlipForCoord(door.x, door.y, door.z)
+    SetBlipSprite(blip, 40)
+    SetBlipColour(blip, 2)
+    SetBlipScale(blip, 0.8)
+    SetBlipAsShortRange(blip, true)
+    BeginTextCommandSetBlipName("STRING")
+    AddTextComponentSubstringPlayerName(house.name)
+    EndTextCommandSetBlipName(blip)
+    houseBlips[id] = blip
+end
+
+-- Rebuilds every blip: for when the character changes (loaded or logged out) and the owner of each house has to be compared again.
+local function refreshHouseBlips()
+    for id in pairs(houseBlips) do
+        removeHouseBlip(id)
+    end
+    for id in pairs(Config.Houses) do
+        addHouseBlip(id)
+    end
+end
+
+RegisterNetEvent("QBCore:Client:OnPlayerLoaded", refreshHouseBlips)
+RegisterNetEvent("QBCore:Client:OnPlayerUnload", function()
+    for id in pairs(houseBlips) do
+        removeHouseBlip(id)
+    end
+end)
+
+AddEventHandler("onResourceStop", function(resource)
+    if resource ~= GetCurrentResourceName() then return end
+    for id in pairs(houseBlips) do
+        removeHouseBlip(id)
+    end
+end)
+
+-- The owner and anyone they gave a key to (/givekeys).
+local function hasKey(house)
+    local citizenid = QBCore.Functions.GetPlayerData().citizenid
+    if house.owner == citizenid then return true end
+    for _, holder in ipairs(house.keyholders) do
+        if holder == citizenid then return true end
+    end
+    return false
+end
+
 local function addHouseZones(id)
     local v = Config.Houses[id]
     if not v then return end
@@ -37,10 +100,58 @@ local function addHouseZones(id)
                 },
                 {
                     icon = "fas fa-lock",
-                    label = (v.locked and "Unlock" or "Lock") .. " Doors",
+                    label = "Lock Doors",
+                    canInteract = function()
+                        local house = Config.Houses[id]
+                        return house ~= nil and not house.locked and hasKey(house)
+                    end,
                     action = function(entity)
                         TriggerServerEvent("ze-interiors:ToggleLock", id)
                     end,
+                    drawDistance = 5.0,
+                    drawColor = {255, 255, 255, 255},
+                    successDrawColor = {0, 255, 0, 255}
+                },
+                {
+                    icon = "fas fa-lock-open",
+                    label = "Unlock Doors",
+                    canInteract = function()
+                        local house = Config.Houses[id]
+                        return house ~= nil and house.locked and hasKey(house)
+                    end,
+                    action = function(entity)
+                        TriggerServerEvent("ze-interiors:ToggleLock", id)
+                    end,
+                    drawDistance = 5.0,
+                    drawColor = {255, 255, 255, 255},
+                    successDrawColor = {0, 255, 0, 255}
+                },
+                {
+                    icon = "fas fa-unlock",
+                    label = "Breach Door",
+                    canInteract = function()
+                        local house = Config.Houses[id]
+                        return house ~= nil and house.locked
+                    end,
+                    action = function(entity)
+                        TriggerServerEvent("ze-interiors:UnlockForcefully", id)
+                    end,
+                    job = { ["police"] = 0 },
+                    drawDistance = 5.0,
+                    drawColor = {255, 255, 255, 255},
+                    successDrawColor = {0, 255, 0, 255}
+                },
+                {
+                    icon = "fas fa-unlock",
+                    label = "Lockpick Door",
+                    canInteract = function()
+                        local house = Config.Houses[id]
+                        return house ~= nil and house.locked
+                    end,
+                    action = function(entity)
+                        TriggerServerEvent("ze-interiors:UnlockForcefully", id)
+                    end,
+                    item = "lockpick",
                     drawDistance = 5.0,
                     drawColor = {255, 255, 255, 255},
                     successDrawColor = {0, 255, 0, 255}
@@ -65,15 +176,20 @@ local function setHouse(data)
         interiorId = data.interior,
         entrances = entrances,
         owner = data.owner,
+        keyholders = data.keyholders or {},
         locked = data.locked
     }
     addHouseZones(data.id)
+    addHouseBlip(data.id)
 end
 
 -- Every house, on start. Replaces what the client had.
 RegisterNetEvent("ze-interiors:SyncHouses", function(list)
     for id in pairs(houseZones) do
         removeHouseZones(id)
+    end
+    for id in pairs(houseBlips) do
+        removeHouseBlip(id)
     end
     Config.Houses = {}
     for _, data in ipairs(list) do
@@ -84,6 +200,7 @@ end)
 -- One house that was created, sold, locked, unlocked or deleted (data is nil when it is gone).
 RegisterNetEvent("ze-interiors:SyncHouse", function(id, data)
     removeHouseZones(id)
+    removeHouseBlip(id)
     Config.Houses[id] = nil
     if data then setHouse(data) end
 end)
@@ -108,7 +225,7 @@ Citizen.CreateThread(function()
                         drawColor = {255, 255, 255, 255},
                         successDrawColor = {0, 255, 0, 255}
                     },
-                    -- one option for each state, so the label is right after the house was locked or unlocked
+                   
                     {
                         icon = "fas fa-lock",
                         label = "Lock Doors",

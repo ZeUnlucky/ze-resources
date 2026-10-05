@@ -18,3 +18,5 @@ Config.Houses = {}
 
 Config.MenuCommand = "housemenu"
 Config.Job = "realestate"
+Config.GiveKeyCmd = "givekey"
+Config.TakeKeyCmd = "takekey"

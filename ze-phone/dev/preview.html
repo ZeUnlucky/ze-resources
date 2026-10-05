@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ze-phone preview</title>
+<style>
+    /* Dev only: runs the real NUI in an iframe and fakes Lua and the server (mock.js). Not part of files{}. */
+    html, body { margin: 0; height: 100%; background: #0b0e13; overflow: hidden; font: 12px/1.3 "Segoe UI", sans-serif; color: #cfd6e2; }
+    .scene {
+        position: fixed; inset: 0;
+        background: linear-gradient(180deg, rgba(60, 80, 110, 0.9) 0%, rgba(110, 120, 130, 0.7) 52%, rgba(34, 36, 40, 1) 53%, rgba(24, 26, 30, 1) 100%);
+    }
+    iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; z-index: 1; background: transparent; }
+    #ctl {
+        position: fixed; z-index: 5; top: 8px; left: 8px; width: 214px; max-height: calc(100% - 16px); overflow-y: auto; padding: 8px; border-radius: 10px;
+        background: rgba(10, 12, 16, 0.92); border: 1px solid rgba(255, 255, 255, 0.12);
+    }
+    #ctl.min { width: auto; }
+    #ctl.min .body { display: none; }
+    #ctl h3 { margin: 0 0 6px; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; color: #ff7a1a; cursor: pointer; }
+    #ctl button {
+        margin: 2px 2px 0 0; padding: 4px 7px; border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 6px;
+        background: #1b2029; color: #edf0f5; cursor: pointer; font: inherit;
+    }
+    #ctl button:hover { border-color: #ff7a1a; }
+    #ctl hr { border: 0; border-top: 1px solid rgba(255, 255, 255, 0.1); margin: 6px 0; }
+    #log { margin-top: 6px; max-height: 130px; overflow: hidden; color: #8a94a6; font: 11px/1.35 Consolas, monospace; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<div class="scene"></div>
+<iframe id="nui" src="../html/index.html"></iframe>
+
+<div id="ctl">
+    <h3 id="ttl">ze-phone preview</h3>
+    <div class="body">
+        <button data-a="toggle">Open / close</button>
+        <button data-a="reinit">Reload data</button>
+        <hr>
+        <button data-a="incoming">Incoming call</button>
+        <button data-a="anon">Anonymous call</button>
+        <button data-a="missed">Missed call</button>
+        <hr>
+        <button data-a="message">Message</button>
+        <button data-a="mail">Mail</button>
+        <button data-a="tweet">Tweet</button>
+        <button data-a="mention">Mention</button>
+        <button data-a="advert">Advert</button>
+        <button data-a="bank">Bank in</button>
+        <button data-a="invoice">Invoice</button>
+        <button data-a="notify">Notify</button>
+        <button data-a="shared">Shared contact</button>
+        <hr>
+        <button data-a="police">Police alert</button>
+        <button data-a="sos">SOS alert</button>
+        <button data-a="cop">Be police</button>
+        <button data-a="civ">Be civilian</button>
+        <hr>
+        <button data-app="phone">Phone</button><button data-app="messages">Messages</button><button data-app="settings">Settings</button>
+        <button data-app="twitter">Twitter</button><button data-app="mail">Mail</button><button data-app="bank">Bank</button>
+        <button data-app="crypto">Crypto</button><button data-app="vehicles">Vehicles</button><button data-app="houses">Houses</button>
+        <button data-app="racing">Racing</button><button data-app="services">Services</button><button data-app="ads">Ads</button>
+        <button data-app="gallery">Gallery</button><button data-app="maps">Maps</button><button data-app="notes">Notes</button>
+        <button data-app="clock">Clock</button><button data-app="calculator">Calc</button><button data-app="mdt">MDT</button>
+        <div id="log"></div>
+    </div>
+</div>
+
+<script src="mock.js"></script>
+<script>
+(() => {
+    const nui = document.getElementById('nui');
+    ZMock.attach(nui);
+    const logEl = document.getElementById('log');
+    ZMock.onLog((lines) => { logEl.textContent = lines.join('\n'); });
+
+    document.getElementById('ttl').addEventListener('click', () => document.getElementById('ctl').classList.toggle('min'));
+    document.getElementById('ctl').addEventListener('click', (e) => {
+        const a = e.target.dataset && e.target.dataset.a;
+        const app = e.target.dataset && e.target.dataset.app;
+        if (a && ZMock.actions[a]) ZMock.actions[a]();
+        if (app) {
+            const z = nui.contentWindow.ZP;
+            if (!z.state.open) ZMock.actions.open();
+            setTimeout(() => z.shell.openApp(app), 80);
+        }
+    });
+
+    // preview.html?fit=1080 renders the NUI in a real 1920x1080 frame, scaled to fit this window (the phone scales with screen height)
+    // &z=1.4 enlarges it further, anchored at the bottom right, to look at details in a small window
+    const params = new URLSearchParams(location.search);
+    const fit = Number(params.get('fit'));
+    const zoom = Number(params.get('z')) || 1;
+    function layoutFit() {
+        if (!(fit > 0) || !innerWidth || !innerHeight) return;
+        const w = Math.round(fit * 16 / 9);
+        const s = Math.min(innerWidth / w, innerHeight / fit) * zoom;
+        nui.style.cssText = `position:fixed;left:${innerWidth - w * s}px;top:${innerHeight - fit * s}px;width:${w}px;height:${fit}px;border:0;z-index:1;background:transparent;transform-origin:0 0;transform:scale(${s})`;
+    }
+    layoutFit();
+    window.addEventListener('resize', layoutFit);
+
+    // open straight away: preview.html#open  or  #app=messages
+    nui.addEventListener('load', () => {
+        const hash = location.hash.slice(1);
+        setTimeout(() => {
+            if (!hash) return;
+            ZMock.actions.open();
+            const m = /^app=(\w+)/.exec(hash);
+            if (m) setTimeout(() => nui.contentWindow.ZP.shell.openApp(m[1]), 400);
+        }, 500);
+    });
+})();
+</script>
+</body>
+</html>

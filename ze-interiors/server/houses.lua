@@ -79,7 +79,19 @@ function Houses.Pack(id)
     for i, e in ipairs(house.entrances) do
         entrances[i] = { x = e.x, y = e.y, z = e.z, w = e.w }
     end
-    return { id = id, name = house.name, interior = house.interiorId, entrances = entrances, owner = house.owner, locked = house.locked }
+    -- the keyholders go along so the door of a house can show Lock / Unlock to them too
+    return { id = id, name = house.name, interior = house.interiorId, entrances = entrances, owner = house.owner, keyholders = house.keyholders, locked = house.locked }
+end
+
+-- True when the citizen owns the house or holds a key to it.
+function Houses.HasKey(id, citizenid)
+    local house = Config.Houses[id]
+    if not house then return false end
+    if house.owner == citizenid then return true end
+    for _, holder in ipairs(house.keyholders) do
+        if holder == citizenid then return true end
+    end
+    return false
 end
 
 function Houses.SyncAll(target)
@@ -135,6 +147,44 @@ function Houses.SetOwner(id, citizenid)
     house.keyholders = {}
     Houses.Sync(id)
     return true
+end
+
+-- Gives a citizen a key: the keyholders column is saved first, the server and the clients only change when it worked.
+function Houses.AddKeyholder(id, citizenid)
+    local house = Config.Houses[id]
+    if not house then return false, 'That house does not exist' end
+    if Houses.HasKey(id, citizenid) then return false, 'That player already has a key' end
+
+    local keyholders = { table.unpack(house.keyholders) }
+    keyholders[#keyholders + 1] = citizenid
+
+    local ok = pcall(MySQL.update.await, 'UPDATE ze_houses SET keyholders = ? WHERE id = ?', { json.encode(keyholders), id })
+    if not ok then return false, 'The database did not save the key' end
+
+    house.keyholders = keyholders
+    Houses.Sync(id)
+    return true
+end
+
+-- Takes a key back. citizenid = nil takes every key (this is also how an offline friend's key is revoked).
+-- Returns the number of keys removed.
+function Houses.RemoveKeyholders(id, citizenid)
+    local house = Config.Houses[id]
+    if not house then return false, 'That house does not exist' end
+
+    local keyholders = {}
+    for _, holder in ipairs(house.keyholders) do
+        if citizenid and holder ~= citizenid then keyholders[#keyholders + 1] = holder end
+    end
+    local removed = #house.keyholders - #keyholders
+    if removed == 0 then return false, citizenid and 'That player has no key' or 'Nobody has a key to that house' end
+
+    local ok = pcall(MySQL.update.await, 'UPDATE ze_houses SET keyholders = ? WHERE id = ?', { json.encode(keyholders), id })
+    if not ok then return false, 'The database did not save the change' end
+
+    house.keyholders = keyholders
+    Houses.Sync(id)
+    return removed
 end
 
 function Houses.SetLocked(id, locked)

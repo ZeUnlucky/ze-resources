@@ -1,17 +1,7 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 
-QBCore.Commands.Add("enterprop", "test", {}, false, function(source)
-    SetEntityCoords(GetPlayerPed(source), Config.Interiors.Test.exits[1])
-    SetEntityHeading(GetPlayerPed(source), Config.Interiors.Test.exits[1][4])
-end)
-
-QBCore.Commands.Add("exitprop", "test", {}, false, function(source)
-    SetEntityCoords(GetPlayerPed(source), 82.0, 51.0, 73.0)
-end)
-
 RegisterServerEvent("ze-interiors:EnterInterior", function(id, entrance)
     local house = Config.Houses[id]
-    -- the house can be gone (deleted while the client still had its door) or the entrance number can be wrong
     if not house or not house.interior.exits[entrance] then return end
 
     if house.locked then
@@ -51,12 +41,25 @@ RegisterServerEvent("ze-interiors:OpenStash", function(id)
 end)
 
 RegisterServerEvent("ze-interiors:ToggleLock", function(id)
-    local src = source -- the database call yields, and `source` is not reliable after that
+    local src = source 
     local house = Config.Houses[id]
     if house then
         local ok, err = Houses.SetLocked(id, not house.locked)
         if ok then
             QBCore.Functions.Notify(src, "House is now " .. (house.locked and "locked" or "unlocked"), "success", 5000)
+        else
+            QBCore.Functions.Notify(src, err, "error", 5000)
+        end
+    end
+end)
+
+RegisterServerEvent("ze-interiors:UnlockForcefully", function(id)
+    local src = source 
+    local house = Config.Houses[id]
+    if house then
+        local ok, err = Houses.SetLocked(id, false)
+        if ok then
+            QBCore.Functions.Notify(src, "House is now breached!", "success", 5000)
         else
             QBCore.Functions.Notify(src, err, "error", 5000)
         end
