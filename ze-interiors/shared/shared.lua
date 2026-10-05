@@ -1,5 +1,7 @@
 Shared = {}
 
+Shared.Houses = {}
+
 Shared.DumpTable = function(o)
     if type(o) == 'table' then
        local s = '{ '

@@ -1,7 +1,7 @@
 local QBCore = exports['qb-core']:GetCoreObject()
 
 RegisterServerEvent("ze-interiors:EnterInterior", function(id, entrance)
-    local house = Config.Houses[id]
+    local house = Shared.Houses[id]
     if not house or not house.interior.exits[entrance] then return end
 
     if house.locked then
@@ -16,7 +16,7 @@ RegisterServerEvent("ze-interiors:EnterInterior", function(id, entrance)
 end)
 
 RegisterServerEvent("ze-interiors:ExitInterior", function(id, exit)
-    local house = Config.Houses[id]
+    local house = Shared.Houses[id]
     if not house or not house.entrances[exit] then return end
 
     SetEntityCoords(GetPlayerPed(source), house.entrances[exit])
@@ -27,7 +27,7 @@ end)
 
 RegisterServerEvent("ze-interiors:OpenStash", function(id)
     local src = source
-    if Config.Houses[id] then
+    if Shared.Houses[id] then
         local stashID = Houses.StashId(id)
         if not exports['qb-inventory']:GetInventory(stashID) then
             exports['qb-inventory']:CreateInventory(stashID, {
@@ -42,7 +42,7 @@ end)
 
 RegisterServerEvent("ze-interiors:ToggleLock", function(id)
     local src = source 
-    local house = Config.Houses[id]
+    local house = Shared.Houses[id]
     if house then
         local ok, err = Houses.SetLocked(id, not house.locked)
         if ok then
@@ -55,7 +55,7 @@ end)
 
 RegisterServerEvent("ze-interiors:UnlockForcefully", function(id)
     local src = source 
-    local house = Config.Houses[id]
+    local house = Shared.Houses[id]
     if house then
         local ok, err = Houses.SetLocked(id, false)
         if ok then

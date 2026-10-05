@@ -396,6 +396,58 @@ input { user-select: text; }
 .btn-sm.danger { padding: 0 0.6rem; }
 .btn-sm.danger:hover { border-color: rgba(255, 93, 122, 0.6); color: var(--danger); }
 
+.btn-sm:disabled { opacity: 0.45; pointer-events: none; }
+
+/* ---------- Lock, owner and keys (edit form) ---------- */
+
+.access-row {
+    margin-bottom: 0.5rem;
+    padding: 0.75rem 0.9rem 0.9rem;
+    border: 1px solid var(--line);
+    border-radius: 1rem;
+    background: rgba(var(--wash-rgb), 0.03);
+}
+.access-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    min-height: 2.1rem;
+}
+.access-label { display: flex; align-items: center; gap: 0.45rem; font-weight: 600; }
+.access-label .icon { width: 1.05rem; height: 1.05rem; color: var(--faint); }
+.access-value { color: var(--muted); font-size: 0.9rem; }
+.access-value b { color: var(--text); font-weight: 600; }
+.access-add { display: flex; gap: 0.45rem; margin-top: 0.6rem; }
+.access-add .text { flex: 1; min-width: 0; height: 2.4rem; padding: 0 0.8rem; }
+.access-add .btn-sm { height: 2.4rem; }
+.access-note { margin: 0.55rem 0.1rem 0; color: var(--muted); font-size: 0.8rem; }
+.keys { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.6rem; }
+.key {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.25rem 0.3rem 0.25rem 0.7rem;
+    border: 1px solid var(--line-2);
+    border-radius: 999px;
+    background: rgba(var(--s5-rgb), 0.6);
+    font-size: 0.85rem;
+}
+.key small { color: var(--faint); }
+.key button {
+    display: grid;
+    place-items: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--muted);
+    transition: color 0.15s, background 0.15s;
+}
+.key button:hover { background: rgba(255, 93, 122, 0.15); color: var(--danger); }
+.key .icon { width: 0.85rem; height: 0.85rem; }
+
 .empty {
     padding: 2.6rem 1rem;
     color: var(--muted);
@@ -474,6 +526,19 @@ input { user-select: text; }
 }
 .entrance-label .icon { width: 1.05rem; height: 1.05rem; color: var(--faint); transition: color 0.15s; }
 .entrance.done .entrance-label .icon { color: var(--ok); }
+.entrance.partial { border-color: rgba(251, 191, 36, 0.4); }
+.entrance.partial .entrance-label .icon { color: var(--warn); }
+.entrance-tag {
+    padding: 0.12rem 0.5rem;
+    border-radius: 999px;
+    background: rgba(var(--wash-rgb), 0.06);
+    color: var(--muted);
+    font: 600 0.62rem/1.4 var(--display);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+.entrance-tag.required { background: rgba(var(--accent-rgb), 0.14); color: var(--accent); }
+.entrance-actions { display: flex; align-items: center; gap: 0.4rem; }
 
 .coords {
     display: grid;

@@ -1,6 +1,6 @@
 /* ze-interiors NUI. Vanilla JS, no build step, no CDNs, no jQuery.
    Lua sends: open, data, close.
-   The UI sends back: getData, getPosition, setWaypoint, lookupPlayer, createHouse, sellHouse, deleteHouse, close. (See README.md.) */
+   The UI sends back: getData, getPosition, setWaypoint, lookupPlayer, createHouse, updateHouse, sellHouse, deleteHouse, close. (See README.md.) */
 
 (() => {
     'use strict';
@@ -95,7 +95,8 @@
         busy: false,
         interiors: [],
         houses: [],
-        add: { name: '', interior: null, entrances: [] },   // entrances: [{ x, y, z, w }] as the typed strings
+        // entrances: one { x, y, z, w } of typed strings per exit (index 0 = exit 1); editing: id of the house being edited, or null
+        add: { name: '', interior: null, entrances: [], editing: null },
         sell: { house: null, player: '' },
         lookup: { state: 'idle', seq: 0, timer: null },
         pendingDelete: null,
@@ -106,6 +107,13 @@
     const houseById = (id) => S.houses.find((h) => String(h.id) === String(id)) || null;
     const ownerLabel = (h) => h.ownerName || h.owner || '';
 
+    // "2 of 3 entrances" when the interior has more exits than the house has entrances, else "2 entrances".
+    function entranceCount(h) {
+        const n = Number(h.entrances) || 0;
+        const exits = Number(h.exits) || 0;
+        return exits > n ? `${n} of ${plural(exits, 'entrance', 'entrances')}` : plural(n, 'entrance', 'entrances');
+    }
+
     // ------------------------------------------------------------------ tabs
 
     const TITLES = { houses: null, add: 'Create house', sell: 'Sell house' };
@@ -115,12 +123,26 @@
         document.querySelectorAll('#tabs .tab').forEach((b) => b.classList.toggle('on', b.dataset.tab === tab));
         ['houses', 'add', 'sell'].forEach((t) => { $(`#pane-${t}`).hidden = t !== tab; });
         $('#foot').hidden = tab === 'houses';
-        $('#submit-label').textContent = TITLES[tab] || '';
+        updateAddLabels();
         if (tab === 'sell') renderSellSelect();
         refreshForm();
     }
 
-    document.querySelectorAll('#tabs .tab').forEach((b) => b.addEventListener('click', () => selectTab(b.dataset.tab)));
+    // The Add house form doubles as the edit form: the button texts follow S.add.editing.
+    function updateAddLabels() {
+        const editing = S.add.editing !== null;
+        $('#submit-label').textContent = S.tab === 'add' && editing ? 'Save changes' : (TITLES[S.tab] || '');
+        $('#reset').textContent = S.tab === 'add' && editing ? 'Cancel' : 'Clear';
+        $('#interior-hint').hidden = !editing;
+        renderAccess();
+        $('#tabs .tab[data-tab="add"] span').textContent = editing ? 'Edit house' : 'Add house';
+    }
+
+    document.querySelectorAll('#tabs .tab').forEach((b) => b.addEventListener('click', () => {
+        // the tab is "Add house" again once you leave the edit form
+        if (b.dataset.tab === 'add' && S.add.editing !== null && S.tab !== 'add') resetAdd();
+        selectTab(b.dataset.tab);
+    }));
 
     // ------------------------------------------------------------------ houses list
 
@@ -154,7 +176,7 @@
         const metaRow = el('div', 'house-meta');
         metaRow.append(
             meta('home', '', h.interiorName || 'No interior'),
-            meta('door', '', plural(Number(h.entrances) || 0, 'entrance', 'entrances')),
+            meta('door', '', entranceCount(h)),
             meta('user', '', owner || 'Nobody'),
         );
         main.appendChild(metaRow);
@@ -176,6 +198,11 @@
                 else toast((res && res.error) || 'Could not set the waypoint', 'err');
             });
         });
+        const edit = el('button', 'btn-sm');
+        edit.type = 'button';
+        edit.title = 'Change the name and the entrances';
+        edit.append(icon('edit'), document.createTextNode('Edit'));
+        edit.addEventListener('click', () => startEdit(h));
         const sell = el('button', 'btn-sm');
         sell.type = 'button';
         sell.append(icon('tag'), document.createTextNode('Sell'));
@@ -189,7 +216,7 @@
         del.title = 'Delete house';
         del.appendChild(icon('trash'));
         del.addEventListener('click', () => askDelete(h));
-        actions.append(waypoint, sell, del);
+        actions.append(waypoint, edit, sell, del);
         row.appendChild(actions);
         return row;
     }
@@ -263,9 +290,12 @@
             wrap.appendChild(e);
             return;
         }
-        S.interiors.forEach((it) => {
+        // editing a house: its interior is fixed, so only that one is shown
+        const shown = S.add.editing !== null ? S.interiors.filter((it) => String(it.id) === String(S.add.interior)) : S.interiors;
+        shown.forEach((it) => {
             const b = el('button', `interior${String(S.add.interior) === String(it.id) ? ' on' : ''}`);
             b.type = 'button';
+            b.disabled = S.add.editing !== null;
             const ico = el('div', 'interior-ico');
             ico.appendChild(icon('home'));
             const txt = el('div');
@@ -276,10 +306,151 @@
         });
     }
 
+    // ------------------------------------------------------------------ lock, owner and keys (edit form)
+    // Each change is saved on its own as soon as it is made; the lists reload from the server afterwards.
+
+    const AC = { owner: '', key: '', busy: false };
+
+    function accessAct(request, failText) {
+        AC.busy = true;
+        renderAccess();
+        return request.then((res) => {
+            AC.busy = false;
+            if (res && res.ok) {
+                toast(res.message || 'Saved', 'ok');
+                return refreshData();
+            }
+            toast((res && res.error) || failText, 'err');
+            renderAccess();
+        });
+    }
+
+    // A "Player ID" box with a button next to it. Returns the row; `run(playerId)` is called when the button is pressed.
+    function playerAdd(key, placeholder, label, run, disabled) {
+        const row = el('div', 'access-add');
+        const input = el('input', 'text');
+        input.type = 'text';
+        input.inputMode = 'numeric';
+        input.placeholder = placeholder;
+        input.autocomplete = 'off';
+        input.value = AC[key];
+        input.disabled = disabled || AC.busy;
+        input.addEventListener('input', () => { AC[key] = input.value; });
+        const go = el('button', 'btn-sm');
+        go.type = 'button';
+        go.textContent = label;
+        go.disabled = disabled || AC.busy;
+        const submit = () => {
+            const n = Number(AC[key]);
+            if (!Number.isInteger(n) || n <= 0) { toast('Enter a valid player ID', 'err'); return; }
+            AC[key] = '';
+            run(n);
+        };
+        go.addEventListener('click', submit);
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') submit(); });
+        row.append(input, go);
+        return row;
+    }
+
+    function renderAccess() {
+        const h = S.add.editing !== null ? houseById(S.add.editing) : null;
+        $('#access').hidden = !h;
+        const body = $('#access-body');
+        body.textContent = '';
+        if (!h) return;
+
+        const owner = ownerLabel(h);
+
+        // lock
+        const lock = el('div', 'access-row');
+        const lockHead = el('div', 'access-head');
+        const lockLabel = el('div', 'access-label');
+        lockLabel.append(icon(h.locked ? 'lock' : 'unlock'), document.createTextNode('Door'), el('span', 'access-value', h.locked ? 'Locked' : 'Unlocked'));
+        const toggle = el('button', 'btn-sm');
+        toggle.type = 'button';
+        toggle.disabled = AC.busy;
+        toggle.append(icon(h.locked ? 'unlock' : 'lock'), document.createTextNode(h.locked ? 'Unlock' : 'Lock'));
+        toggle.addEventListener('click', () => accessAct(post('setLocked', { house: h.id, locked: !h.locked }), 'Could not change the lock'));
+        lockHead.append(lockLabel, toggle);
+        lock.appendChild(lockHead);
+        body.appendChild(lock);
+
+        // owner
+        const own = el('div', 'access-row');
+        const ownHead = el('div', 'access-head');
+        const ownLabel = el('div', 'access-label');
+        const ownValue = el('span', 'access-value');
+        ownValue.appendChild(owner ? el('b', null, owner) : document.createTextNode('Nobody (for sale)'));
+        ownLabel.append(icon('user'), document.createTextNode('Owner'), ownValue);
+        ownHead.appendChild(ownLabel);
+        if (owner) {
+            const remove = el('button', 'btn-sm danger');
+            remove.type = 'button';
+            remove.disabled = AC.busy;
+            remove.append(icon('x'), document.createTextNode('Remove'));
+            remove.addEventListener('click', () => accessAct(post('removeOwner', { house: h.id }), 'Could not remove the owner'));
+            ownHead.appendChild(remove);
+        }
+        own.appendChild(ownHead);
+        own.appendChild(playerAdd('owner', 'Player ID of the new owner', owner ? 'Change owner' : 'Set owner',
+            (id) => accessAct(post('setOwner', { house: h.id, player: id }), 'Could not set the owner')));
+        own.appendChild(el('p', 'access-note', 'A new owner starts without the keys of the previous one.'));
+        body.appendChild(own);
+
+        // keys
+        const keyRow = el('div', 'access-row');
+        const keyHead = el('div', 'access-head');
+        const keyLabel = el('div', 'access-label');
+        const keys = toList(h.keyholders);
+        keyLabel.append(icon('lock'), document.createTextNode('Keys'), el('span', 'access-value', plural(keys.length, 'key', 'keys')));
+        keyHead.appendChild(keyLabel);
+        keyRow.appendChild(keyHead);
+        if (keys.length) {
+            const chips = el('div', 'keys');
+            keys.forEach((k) => {
+                const c = el('span', 'key');
+                c.appendChild(document.createTextNode(k.name || k.citizenid));
+                if (k.name) c.appendChild(el('small', null, k.citizenid));
+                const x = el('button');
+                x.type = 'button';
+                x.title = 'Take this key back';
+                x.disabled = AC.busy;
+                x.appendChild(icon('x'));
+                x.addEventListener('click', () => accessAct(post('removeKey', { house: h.id, citizenid: k.citizenid }), 'Could not remove the key'));
+                c.appendChild(x);
+                chips.appendChild(c);
+            });
+            keyRow.appendChild(chips);
+        }
+        keyRow.appendChild(playerAdd('key', 'Player ID to give a key to', 'Give key',
+            (id) => accessAct(post('addKey', { house: h.id, player: id }), 'Could not give the key'), !owner));
+        if (!owner) keyRow.appendChild(el('p', 'access-note', 'Keys belong to an owner. Set an owner first.'));
+        body.appendChild(keyRow);
+    }
+
+    // Opens the form filled in with a house. The server sends each entrance's coordinates in h.entranceList.
+    function startEdit(h) {
+        const exits = Number(h.exits) || 0;
+        const round = (v) => (Math.round(Number(v) * 100) / 100).toString();
+        const list = toList(h.entranceList);
+        const entrances = [];
+        for (let i = 0; i < exits; i++) {
+            const e = list.find((x) => Number(x.exit) === i + 1);
+            entrances.push(e ? { x: round(e.x), y: round(e.y), z: round(e.z), w: round(e.w || 0) } : { x: '', y: '', z: '', w: '' });
+        }
+        S.add = { name: h.name || '', interior: h.interior, entrances, editing: h.id };
+        $('#add-name').value = S.add.name;
+        AC.owner = '';
+        AC.key = '';
+        renderInteriors();
+        renderEntrances();
+        selectTab('add');
+    }
+
     function pickInterior(id) {
         S.add.interior = id;
         const exits = Number((interiorById(id) || {}).exits) || 0;
-        // keep what was typed for the entrances that still exist, add or drop the rest
+        // one slot per exit: keep what was typed for the exits that still exist, add or drop the rest
         const next = [];
         for (let i = 0; i < exits; i++) next.push(S.add.entrances[i] || { x: '', y: '', z: '', w: '' });
         S.add.entrances = next;
@@ -296,27 +467,43 @@
 
         const it = interiorById(S.add.interior);
         if (!it) {
-            hint.textContent = 'Pick an interior first. A house needs one entrance for every exit its interior has.';
+            hint.textContent = 'Pick an interior first. Its first exit needs an entrance, the other exits are optional.';
             return;
         }
 
         const exits = S.add.entrances.length;
         hint.append(
             el('b', null, it.name || `Interior ${it.id}`),
-            document.createTextNode(` has ${plural(exits, 'exit', 'exits')}, so this house needs `),
-            el('b', null, plural(exits, 'entrance', 'entrances')),
-            document.createTextNode('. Stand where the door is and press Use my position, or type the coordinates (a pasted vector4 fills all four).'),
+            document.createTextNode(` has ${plural(exits, 'exit', 'exits')}. `),
+            el('b', null, 'Entrance 1 is required'),
+            document.createTextNode(exits > 1
+                ? '. Fill in the others only for the exits this house should have: an exit without an entrance is not shown inside the house. '
+                : '. '),
+            document.createTextNode('Stand where the door is and press Use my position, or type the coordinates (a pasted vector4 fills all four).'),
         );
 
         S.add.entrances.forEach((ent, i) => {
             const card = el('div', 'entrance');
             const head = el('div', 'entrance-head');
             const label = el('div', 'entrance-label');
-            label.append(icon('pin'), document.createTextNode(`Entrance ${i + 1}`));
+            label.append(icon('pin'), document.createTextNode(`Entrance ${i + 1}`), el('span', `entrance-tag${i === 0 ? ' required' : ''}`, i === 0 ? 'Required' : 'Optional'));
             const use = el('button', 'btn-sm');
             use.type = 'button';
             use.append(icon('pin'), document.createTextNode('Use my position'));
-            head.append(label, use);
+            const actions = el('div', 'entrance-actions');
+            if (i > 0) {
+                const clear = el('button', 'btn-sm danger');
+                clear.type = 'button';
+                clear.title = 'Leave this exit without an entrance';
+                clear.appendChild(icon('x'));
+                clear.addEventListener('click', () => {
+                    COORD_KEYS.forEach((k) => { ent[k] = ''; inputs[k].value = ''; });
+                    refreshForm();
+                });
+                actions.appendChild(clear);
+            }
+            actions.appendChild(use);
+            head.append(label, actions);
             card.appendChild(head);
 
             const grid = el('div', 'coords');
@@ -371,6 +558,7 @@
 
     const filled = (v) => String(v).trim() !== '' && Number.isFinite(Number(v));
     const entranceDone = (e) => filled(e.x) && filled(e.y) && filled(e.z) && (String(e.w).trim() === '' || filled(e.w));
+    const entranceEmpty = (e) => COORD_KEYS.every((k) => String(e[k]).trim() === '');
 
     $('#add-name').addEventListener('input', (e) => { S.add.name = e.target.value; refreshForm(); });
 
@@ -405,7 +593,7 @@
         const owner = ownerLabel(h);
         info.append(
             meta('home', '', h.interiorName || 'No interior'),
-            meta('door', '', plural(Number(h.entrances) || 0, 'entrance', 'entrances')),
+            meta('door', '', entranceCount(h)),
             meta('user', owner ? 'Owner' : '', owner || 'Nobody'),
         );
     }
@@ -458,11 +646,20 @@
     function refreshForm() {
         const submit = $('#submit');
         if (S.tab === 'add') {
-            const total = S.add.entrances.length;
-            const done = S.add.entrances.filter(entranceDone).length;
-            document.querySelectorAll('#add-entrances .entrance').forEach((c) => c.classList.toggle('done', entranceDone(c._ent)));
-            submit.disabled = S.busy || !S.add.name.trim() || !S.add.interior || !total || done !== total;
-            $('#status').textContent = total ? `${done} / ${plural(total, 'entrance', 'entrances')} set` : 'Pick an interior';
+            // Entrance 1 has to be complete; every other one is either complete or left empty (half filled blocks the form)
+            const list = S.add.entrances;
+            const total = list.length;
+            const done = list.filter(entranceDone).length;
+            const partial = list.findIndex((e, i) => !entranceDone(e) && !(i > 0 && entranceEmpty(e)));
+            document.querySelectorAll('#add-entrances .entrance').forEach((c, i) => {
+                c.classList.toggle('done', entranceDone(c._ent));
+                c.classList.toggle('partial', !entranceDone(c._ent) && !entranceEmpty(c._ent));
+            });
+            submit.disabled = S.busy || !S.add.name.trim() || !S.add.interior || !total || partial !== -1;
+            $('#status').textContent = !total ? 'Pick an interior'
+                : partial === 0 && entranceEmpty(list[0]) ? 'Entrance 1 is required'
+                : partial !== -1 ? `Finish or clear entrance ${partial + 1}`
+                : `${done} of ${plural(total, 'entrance', 'entrances')} set`;
         } else if (S.tab === 'sell') {
             $('#status').textContent = '';
             submit.disabled = S.busy || !houseById(S.sell.house) || !playerId() || S.lookup.state === 'err' || S.lookup.state === 'loading';
@@ -470,10 +667,11 @@
     }
 
     function resetAdd() {
-        S.add = { name: '', interior: null, entrances: [] };
+        S.add = { name: '', interior: null, entrances: [], editing: null };
         $('#add-name').value = '';
         renderInteriors();
         renderEntrances();
+        updateAddLabels();
     }
 
     function resetSell() {
@@ -485,18 +683,32 @@
     }
 
     $('#reset').addEventListener('click', () => {
-        if (S.tab === 'add') resetAdd(); else if (S.tab === 'sell') resetSell();
+        if (S.tab === 'add') {
+            const wasEditing = S.add.editing !== null;
+            resetAdd();
+            if (wasEditing) { selectTab('houses'); return; }   // Cancel goes back to the list
+        } else if (S.tab === 'sell') {
+            resetSell();
+        }
         refreshForm();
     });
 
     $('#submit').addEventListener('click', () => {
         if ($('#submit').disabled) return;
         if (S.tab === 'add') {
-            const entrances = S.add.entrances.map((e) => ({
-                x: Number(e.x), y: Number(e.y), z: Number(e.z), w: String(e.w).trim() === '' ? 0 : Number(e.w),
-            }));
-            act(post('createHouse', { name: S.add.name.trim(), interior: S.add.interior, entrances }),
-                'House created', 'Could not create the house', resetAdd);
+            // `exit` is the exit of the interior the entrance leads to; the exits left empty are not sent
+            const entrances = [];
+            S.add.entrances.forEach((e, i) => {
+                if (!entranceDone(e)) return;
+                entrances.push({ exit: i + 1, x: Number(e.x), y: Number(e.y), z: Number(e.z), w: String(e.w).trim() === '' ? 0 : Number(e.w) });
+            });
+            if (S.add.editing !== null) {
+                act(post('updateHouse', { house: S.add.editing, name: S.add.name.trim(), entrances }),
+                    'House saved', 'Could not save the house', resetAdd);
+            } else {
+                act(post('createHouse', { name: S.add.name.trim(), interior: S.add.interior, entrances }),
+                    'House created', 'Could not create the house', resetAdd);
+            }
         } else if (S.tab === 'sell') {
             act(post('sellHouse', { house: S.sell.house, player: playerId() }),
                 'House sold', 'Could not sell the house', resetSell);
@@ -525,7 +737,15 @@
     function setData(msg) {
         S.interiors = toList(msg.interiors);
         S.houses = toList(msg.houses);
-        if (S.add.interior !== null && !interiorById(S.add.interior)) { S.add.interior = null; S.add.entrances = []; }
+        if (S.add.editing !== null && !houseById(S.add.editing)) {
+            // the house being edited was deleted meanwhile
+            S.add = { name: '', interior: null, entrances: [], editing: null };
+            $('#add-name').value = '';
+        } else if (S.add.interior !== null && !interiorById(S.add.interior)) {
+            S.add.interior = null;
+            S.add.entrances = [];
+        }
+        updateAddLabels();
         renderHouses();
         renderInteriors();
         renderEntrances();
@@ -555,7 +775,7 @@
     function open(msg) {
         if (msg.accent) setAccent(msg.accent);
         S.busy = false;
-        S.add = { name: '', interior: null, entrances: [] };
+        S.add = { name: '', interior: null, entrances: [], editing: null };
         S.sell = { house: null, player: '' };
         $('#add-name').value = '';
         $('#sell-player').value = '';

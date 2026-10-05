@@ -4,12 +4,15 @@ An admin menu for managing houses, in the same "Ember" theme as ze-inventory, ze
 
 ## Setup
 
-Import `ze_houses.sql`, and start `oxmysql` before this resource. Houses live in the `ze_houses` table: `Config.Houses` starts empty, the server fills it from the table (`server/houses.lua`) and syncs it to the clients, which build the qb-target door zones from it. Interiors stay in `shared/config.lua`. A house whose interior is missing from the config, or whose entrance count no longer matches the interior's exits, is skipped at load with a console warning (its row is left alone).
+Import `ze_houses.sql`, and start `oxmysql` before this resource. Houses live in the `ze_houses` table: `Shared.Houses` starts empty, the server fills it from the table (`server/houses.lua`) and syncs it to the clients, which build the qb-target door zones from it. Interiors stay in `shared/config.lua`. A house whose interior is missing from the config, or that has no entrance on exit 1, is skipped at load with a console warning (its row is left alone). An entrance that points at an exit the interior no longer has is ignored with a warning.
+
+**Entrances and exits.** An interior can have any number of `exits` in `Config.Interiors`. A house always has an entrance on exit 1; entrances on the other exits are optional. The `entrances` column is a JSON list of `{ exit, x, y, z, w }`, and `Shared.Houses[id].entrances` is keyed by exit number and can have holes, so walk it with `pairs`. Rows saved before this (a plain list without `exit`) still load: the position in the list is the exit. Inside a house, the Exit / Lock / Unlock options at an exit only show when the house has an entrance on that exit.
 
 The menu has three tabs:
 
-- **Houses**: searchable list with owner, lock state and entrance count, and a Set waypoint, a Sell and a Delete button on every row. Set waypoint marks the first entrance on the map (the client already holds every house, so it needs no server call). Delete asks for confirmation.
-- **Add house**: name, interior, and one entrance per exit of the chosen interior. The Create button stays disabled until every entrance has coordinates. "Use my position" fills an entrance from where you stand, and pasting a `vector4(...)` into any coordinate box fills all four.
+- **Houses**: searchable list with owner, lock state and entrance count ("2 of 3 entrances" when the interior has more exits than the house has entrances), and a Set waypoint, a Sell and a Delete button on every row. Set waypoint marks the first entrance on the map (the client already holds every house, so it needs no server call). Delete asks for confirmation.
+- **Add house**: name, interior, and a card per exit of the chosen interior. Entrance 1 is required, the others are optional: leave a card empty (or press its X) and that exit simply does not exist for the house. The Create button stays disabled until entrance 1 is complete and no other card is half filled. "Use my position" fills an entrance from where you stand, and pasting a `vector4(...)` into any coordinate box fills all four.
+- **Edit house**: the Edit button on a house row opens the Add house form filled in with that house (the tab turns into "Edit house"). You can change the name and the entrances; the interior is fixed (it is shown, locked), because people can be standing inside it, so use Delete and Add to switch interior. Below the entrances, the form has a **Lock, owner and keys** section that saves on its own: every change there (lock/unlock, set or remove the owner by player id, give a key by player id, take a key back with its X) is written to `ze_houses` the moment you make it, without Save changes. Setting or removing an owner clears the keys, like selling does. Keys can only be given while the house has an owner. The entrances you send replace the old ones, so emptying an optional card removes that entrance, and entrance 1 stays required. Save changes calls `updateHouse`; Cancel goes back to the list.
 - **Sell house**: pick a house and type the buyer's server id. The buyer's name is looked up while you type.
 
 ## Files
@@ -19,7 +22,7 @@ The menu has three tabs:
 | `html/` | The menu UI. |
 | `client/menu.lua` | Opens the NUI and relays each NUI callback to the server. |
 | `client/client.lua` | qb-target zones and the owner's map blips (green house icon on the first entrance, only on the owner's own map). Doors and blips are rebuilt when the server syncs a house, and the blips again when a character loads or logs out. |
-| `server/houses.lua` | Loads `ze_houses`, and the only place that writes to it: `Houses.Create / SetOwner / SetLocked / Delete`. Syncs every change to the clients. |
+| `server/houses.lua` | Loads `ze_houses`, and the only place that writes to it: `Houses.Create / Update / SetOwner / SetLocked / Delete`. Syncs every change to the clients. |
 | `server/menu.lua` | The command, the permission check and the menu callbacks (validation, then a call into `Houses`). |
 | `server/server.lua` | Enter, exit, stash and lock events. Locking is saved. |
 | `server/keys.lua` | The `/givekeys` command (see below). Not connected to the menu. |
@@ -30,7 +33,7 @@ What the actions do besides the table: **selling** sets the owner and clears the
 
 The owner of a house gives a friend a key with `/givekeys [player id] [house id]`. The house id is optional: without it the house is the one the owner is inside, or the nearest entrance of theirs within 5 m, or their only house. Rules, all checked on the server: only the owner can give keys (a keyholder cannot pass them on), the friend has to be online, within 5 m and in the same routing bucket, and a player who already has a key is refused.
 
-A key is the friend's citizenid in the `keyholders` JSON array of the house's row in `ze_houses`. `Houses.AddKeyholder(id, citizenid)` saves it first and only then changes `Config.Houses` and syncs the clients, so a database failure leaves nothing half done. Selling the house still clears the keyholders.
+A key is the friend's citizenid in the `keyholders` JSON array of the house's row in `ze_houses`. `Houses.AddKeyholder(id, citizenid)` saves it first and only then changes `Shared.Houses` and syncs the clients, so a database failure leaves nothing half done. Selling the house still clears the keyholders.
 
 `/takekeys [player id | all] [house id]` takes a key back, with the same house rules as `/givekeys`. A player id removes that friend's key (they have to be online but not nearby); `all` removes every key of the house, which is how a friend who is offline loses theirs. `Houses.RemoveKeyholders(id, citizenid)` does the database write the same way (citizenid `nil` = all keys). A keyholder sees Lock Doors / Unlock Doors on the front door like the owner does; the server sends `keyholders` to the clients for that.
 
@@ -40,15 +43,21 @@ Server callbacks (all return nothing / `ok = false` without the permission):
 
 | Callback | Receives | Replies |
 | --- | --- | --- |
-| `ze-interiors:menu:getData` | | `{ interiors = { {id, name, exits} }, houses = { {id, name, interiorName, entrances, owner, ownerName, locked} } }` |
+| `ze-interiors:menu:getData` | | `{ interiors = { {id, name, exits} }, houses = { {id, name, interior, interiorName, entrances, entranceList = { {exit, x, y, z, w} }, exits, owner, ownerName, locked, keyholders = { {citizenid, name} }} } }` (`entrances` = how many are set, `exits` = how many the interior has, `entranceList` fills the edit form) |
 | `ze-interiors:menu:lookupPlayer` | `{ id }` | `{ ok, name, citizenid }` or `{ ok = false, error }` |
-| `ze-interiors:menu:createHouse` | `{ name, interior, entrances = { {x, y, z, w} } }` | `{ ok, error?, message? }` |
+| `ze-interiors:menu:createHouse` | `{ name, interior, entrances = { {exit, x, y, z, w} } }` | `{ ok, error?, message? }` |
+| `ze-interiors:menu:updateHouse` | `{ house, name, entrances = { {exit, x, y, z, w} } }` | `{ ok, error?, message? }` |
+| `ze-interiors:menu:setLocked` | `{ house, locked }` | `{ ok, error?, message? }` |
+| `ze-interiors:menu:setOwner` | `{ house, player }` | `{ ok, error?, message? }` (notifies the new owner) |
+| `ze-interiors:menu:removeOwner` | `{ house }` | `{ ok, error?, message? }` |
+| `ze-interiors:menu:addKey` | `{ house, player }` | `{ ok, error?, message? }` |
+| `ze-interiors:menu:removeKey` | `{ house, citizenid }` | `{ ok, error?, message? }` |
 | `ze-interiors:menu:sellHouse` | `{ house, player }` | `{ ok, error?, message? }` |
 | `ze-interiors:menu:deleteHouse` | `{ house }` | `{ ok, error?, message? }` |
 
-`interior` and `house` are the ids from `getData`, `player` is a server id, `w` is the heading. The UI makes sure `#entrances` equals the interior's exit count, but re-check it in `createHouse`. After an `ok` reply the UI reloads the lists with `getData`, so the server has nothing else to push. `error` is shown to the admin as a red toast, `message` replaces the default green one.
+`interior` and `house` are the ids from `getData`, `player` is a server id, `w` is the heading. `exit` is the exit number of the interior (1 to its exit count). The UI always sends exit 1 and only the other exits that were filled in, but `createHouse` re-checks that: exit 1 present, no duplicates, no exit the interior does not have. After an `ok` reply the UI reloads the lists with `getData`, so the server has nothing else to push. `error` is shown to the admin as a red toast, `message` replaces the default green one.
 
-NUI messages from the client: `open { interiors, houses, accent? }`, `data { interiors, houses }` (refreshes the lists while the menu is open) and `close`. NUI callbacks to the client: `close`, `getData`, `getPosition`, `setWaypoint` (`{ house }`, answered by the client itself with `{ ok, message?, error? }`), `lookupPlayer`, `createHouse`, `sellHouse`, `deleteHouse`.
+NUI messages from the client: `open { interiors, houses, accent? }`, `data { interiors, houses }` (refreshes the lists while the menu is open) and `close`. NUI callbacks to the client: `close`, `getData`, `getPosition`, `setWaypoint` (`{ house }`, answered by the client itself with `{ ok, message?, error? }`), `lookupPlayer`, `createHouse`, `updateHouse`, `sellHouse`, `deleteHouse`.
 
 ## Previewing the UI without the game
 

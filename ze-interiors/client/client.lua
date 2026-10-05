@@ -2,8 +2,6 @@ local QBCore = exports['qb-core']:GetCoreObject()
 
 currentInterior = 0
 
--- Config.Houses is filled by the server (server/houses.lua) with ze-interiors:SyncHouses / SyncHouse.
--- houseZones[id] = names of the qb-target zones of that house, so they can be removed when it changes.
 local houseZones = {}
 
 local function removeHouseZones(id)
@@ -13,8 +11,6 @@ local function removeHouseZones(id)
     houseZones[id] = nil
 end
 
--- Map blips are local to each client, so a blip only exists for the player who owns the house (keyholders do not get one).
--- houseBlips[id] = blip handle; it sits on the first entrance.
 local houseBlips = {}
 
 local function removeHouseBlip(id)
@@ -27,7 +23,7 @@ end
 local function addHouseBlip(id)
     removeHouseBlip(id)
 
-    local house = Config.Houses[id]
+    local house = Shared.Houses[id]
     if not house or house.owner == '' or house.owner ~= QBCore.Functions.GetPlayerData().citizenid then return end
 
     local door = house.entrances[1]
@@ -47,7 +43,7 @@ local function refreshHouseBlips()
     for id in pairs(houseBlips) do
         removeHouseBlip(id)
     end
-    for id in pairs(Config.Houses) do
+    for id in pairs(Shared.Houses) do
         addHouseBlip(id)
     end
 end
@@ -66,7 +62,6 @@ AddEventHandler("onResourceStop", function(resource)
     end
 end)
 
--- The owner and anyone they gave a key to (/givekeys).
 local function hasKey(house)
     local citizenid = QBCore.Functions.GetPlayerData().citizenid
     if house.owner == citizenid then return true end
@@ -77,11 +72,12 @@ local function hasKey(house)
 end
 
 local function addHouseZones(id)
-    local v = Config.Houses[id]
+    local v = Shared.Houses[id]
     if not v then return end
 
     houseZones[id] = {}
-    for entranceNum, entrance in ipairs(v.entrances) do
+    -- entrances is keyed by exit number and can have holes (only exit 1 is required), so pairs
+    for entranceNum, entrance in pairs(v.entrances) do
         local zoneName = id.."entrance"..entranceNum
         exports['qb-target']:AddCircleZone(zoneName, entrance, 2, {
             name = zoneName,
@@ -102,7 +98,7 @@ local function addHouseZones(id)
                     icon = "fas fa-lock",
                     label = "Lock Doors",
                     canInteract = function()
-                        local house = Config.Houses[id]
+                        local house = Shared.Houses[id]
                         return house ~= nil and not house.locked and hasKey(house)
                     end,
                     action = function(entity)
@@ -116,7 +112,7 @@ local function addHouseZones(id)
                     icon = "fas fa-lock-open",
                     label = "Unlock Doors",
                     canInteract = function()
-                        local house = Config.Houses[id]
+                        local house = Shared.Houses[id]
                         return house ~= nil and house.locked and hasKey(house)
                     end,
                     action = function(entity)
@@ -130,7 +126,7 @@ local function addHouseZones(id)
                     icon = "fas fa-unlock",
                     label = "Breach Door",
                     canInteract = function()
-                        local house = Config.Houses[id]
+                        local house = Shared.Houses[id]
                         return house ~= nil and house.locked
                     end,
                     action = function(entity)
@@ -145,7 +141,7 @@ local function addHouseZones(id)
                     icon = "fas fa-unlock",
                     label = "Lockpick Door",
                     canInteract = function()
-                        local house = Config.Houses[id]
+                        local house = Shared.Houses[id]
                         return house ~= nil and house.locked
                     end,
                     action = function(entity)
@@ -163,14 +159,14 @@ local function addHouseZones(id)
     end
 end
 
--- One house as the server packs it (Houses.Pack): the entrances come as { x, y, z, w } and become vector4 again.
+-- One house as the server packs it (Houses.Pack): the entrances come as { exit, x, y, z, w } and become vector4 again, keyed by exit.
 local function setHouse(data)
     local entrances = {}
-    for i, e in ipairs(data.entrances) do
-        entrances[i] = vector4(e.x + 0.0, e.y + 0.0, e.z + 0.0, e.w + 0.0)
+    for _, e in ipairs(data.entrances) do
+        entrances[e.exit] = vector4(e.x + 0.0, e.y + 0.0, e.z + 0.0, e.w + 0.0)
     end
 
-    Config.Houses[data.id] = {
+    Shared.Houses[data.id] = {
         name = data.name,
         interior = Config.Interiors[data.interior],
         interiorId = data.interior,
@@ -191,7 +187,7 @@ RegisterNetEvent("ze-interiors:SyncHouses", function(list)
     for id in pairs(houseBlips) do
         removeHouseBlip(id)
     end
-    Config.Houses = {}
+    Shared.Houses = {}
     for _, data in ipairs(list) do
         setHouse(data)
     end
@@ -201,12 +197,18 @@ end)
 RegisterNetEvent("ze-interiors:SyncHouse", function(id, data)
     removeHouseZones(id)
     removeHouseBlip(id)
-    Config.Houses[id] = nil
+    Shared.Houses[id] = nil
     if data then setHouse(data) end
 end)
 
 Citizen.CreateThread(function()
     TriggerServerEvent("ze-interiors:RequestHouses")
+
+    -- An exit only exists for the house you are in when that house has an entrance connected to it, so every option checks that.
+    local function connected(exitNum)
+        local house = Shared.Houses[currentInterior]
+        return house ~= nil and house.entrances[exitNum] ~= nil
+    end
 
     for id, v in ipairs(Config.Interiors) do
         for exitNum, exit in ipairs(v.exits) do
@@ -218,6 +220,9 @@ Citizen.CreateThread(function()
                     {
                         icon = "fas fa-door-open",
                         label = "Exit House",
+                        canInteract = function()
+                            return connected(exitNum)
+                        end,
                         action = function(entity)
                             TriggerServerEvent("ze-interiors:ExitInterior", currentInterior, exitNum)
                         end,
@@ -230,8 +235,8 @@ Citizen.CreateThread(function()
                         icon = "fas fa-lock",
                         label = "Lock Doors",
                         canInteract = function()
-                            local house = Config.Houses[currentInterior]
-                            return house ~= nil and not house.locked
+                            local house = Shared.Houses[currentInterior]
+                            return connected(exitNum) and not house.locked
                         end,
                         action = function(entity)
                             TriggerServerEvent("ze-interiors:ToggleLock", currentInterior)
@@ -244,8 +249,8 @@ Citizen.CreateThread(function()
                         icon = "fas fa-lock-open",
                         label = "Unlock Doors",
                         canInteract = function()
-                            local house = Config.Houses[currentInterior]
-                            return house ~= nil and house.locked
+                            local house = Shared.Houses[currentInterior]
+                            return connected(exitNum) and house.locked
                         end,
                         action = function(entity)
                             TriggerServerEvent("ze-interiors:ToggleLock", currentInterior)
@@ -274,7 +279,7 @@ Citizen.CreateThread(function()
                     successDrawColor = {0, 255, 0, 255}
                 }
             },
-            distance = 2.0
+            distance = 1.0
         })
 
         exports['qb-target']:AddCircleZone(id.."clothes", v.clothes, 1, {
@@ -293,7 +298,7 @@ Citizen.CreateThread(function()
                     successDrawColor = {0, 255, 0, 255}
                 }
             },
-            distance = 2.0
+            distance = 1.0
         })
     end
 end)

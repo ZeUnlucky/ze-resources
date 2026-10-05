@@ -54,7 +54,7 @@ end)
 -- Needs no server round trip: the client already has every house's entrances (synced by server/houses.lua).
 -- The menu only opens for players with permission, but a NUI callback can be called by anything, so check that it is open.
 RegisterNUICallback('setWaypoint', function(data, cb)
-    local house = menuOpen and type(data) == 'table' and Config.Houses[tonumber(data.house)] or nil
+    local house = menuOpen and type(data) == 'table' and Shared.Houses[tonumber(data.house)] or nil
     local door = house and house.entrances[1]
     if not door then return cb({ ok = false, error = 'That house does not exist' }) end
 
@@ -67,11 +67,25 @@ RegisterNUICallback('lookupPlayer', function(data, cb)
     relay('ze-interiors:menu:lookupPlayer', data, cb, { ok = false, error = 'No answer from the server' })
 end)
 
--- Add house. data = { name = string, interior = interior id, entrances = { { x, y, z, w }, ... } }
+-- Add house. data = { name = string, interior = interior id, entrances = { { exit, x, y, z, w }, ... } }
 -- Reply: { ok = bool, error? = string, message? = string }
 RegisterNUICallback('createHouse', function(data, cb)
     relay('ze-interiors:menu:createHouse', data, cb, { ok = false, error = 'No answer from the server' })
 end)
+
+-- Edit house. data = { house = house id, name = string, entrances = { { exit, x, y, z, w }, ... } }
+-- Reply: { ok = bool, error? = string, message? = string }
+RegisterNUICallback('updateHouse', function(data, cb)
+    relay('ze-interiors:menu:updateHouse', data, cb, { ok = false, error = 'No answer from the server' })
+end)
+
+-- Access, saved straight away from the edit form. All reply { ok, error?, message? }.
+-- setLocked { house, locked }, setOwner { house, player }, removeOwner { house }, addKey { house, player }, removeKey { house, citizenid }
+for _, name in ipairs({ 'setLocked', 'setOwner', 'removeOwner', 'addKey', 'removeKey' }) do
+    RegisterNUICallback(name, function(data, cb)
+        relay('ze-interiors:menu:' .. name, data, cb, { ok = false, error = 'No answer from the server' })
+    end)
+end
 
 -- Sell a house to a player. data = { house = house id, player = server id }
 -- Reply: { ok = bool, error? = string, message? = string }

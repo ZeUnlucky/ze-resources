@@ -16,16 +16,16 @@ end
 -- The owner's house when no id was typed: the one they are inside, else the closest entrance of one of theirs, else their only house.
 local function findHouse(source, citizenid)
     local inside = GetPlayerRoutingBucket(source) - 5000
-    local house = Config.Houses[inside]
+    local house = Shared.Houses[inside]
     if house and house.owner == citizenid then return inside end
 
     local here = GetEntityCoords(GetPlayerPed(source))
     local owned, ownedCount = nil, 0
     local nearest, nearestDistance = nil, DOOR_DISTANCE
-    for id, h in pairs(Config.Houses) do
+    for id, h in pairs(Shared.Houses) do
         if h.owner == citizenid then
             owned, ownedCount = id, ownedCount + 1
-            for _, entrance in ipairs(h.entrances) do
+            for _, entrance in pairs(h.entrances) do
                 local distance = #(here - vector3(entrance.x, entrance.y, entrance.z))
                 if distance <= nearestDistance then nearest, nearestDistance = id, distance end
             end
@@ -42,7 +42,7 @@ end
 local function resolveHouse(source, citizenid, typed)
     local id = tonumber(typed)
     if id then
-        local house = Config.Houses[id]
+        local house = Shared.Houses[id]
         if not house then return notify(source, 'That house does not exist', 'error') end
         if house.owner ~= citizenid then return notify(source, 'You do not own that house', 'error') end
         return id
@@ -73,7 +73,7 @@ QBCore.Commands.Add(Config.GiveKeyCmd, 'Give a friend a key to your house', {
 
     local id = resolveHouse(source, citizenid, args[2])
     if not id then return end
-    local house = Config.Houses[id]
+    local house = Shared.Houses[id]
 
     -- handing over a key is done in person
     local near = GetEntityCoords(GetPlayerPed(source))
@@ -111,7 +111,7 @@ QBCore.Commands.Add(Config.TakeKeyCmd, 'Take back a key to your house', {
 
     local id = resolveHouse(source, owner.PlayerData.citizenid, args[2])
     if not id then return end
-    local house = Config.Houses[id]
+    local house = Shared.Houses[id]
 
     local removed, err = Houses.RemoveKeyholders(id, target and target.PlayerData.citizenid)
     if not removed then return notify(source, err, 'error') end

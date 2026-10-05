@@ -54,10 +54,10 @@
         { id: 4, name: 'Garage Flat', exits: 2 },
     ];
     let houses = [
-        { id: 1, name: 'Test house', interiorName: 'Test', entrances: 2, owner: '', locked: false },
-        { id: 2, name: 'Vinewood Hills 12', interiorName: 'Modern Mansion with a long name', entrances: 3, owner: 'ABC12345', ownerName: 'Marcus Webb', locked: true },
-        { id: 3, name: 'Grove Street Flat', interiorName: 'Low End Apartment', entrances: 1, owner: 'XYZ98765', ownerName: 'Dana Holloway', locked: false },
-        { id: 4, name: 'Mirror Park Garage Flat', interiorName: 'Garage Flat', entrances: 2, owner: '', locked: true },
+        { id: 1, name: 'Test house', interior: 1, interiorName: 'Test', entrances: 1, exits: 2, entranceList: [{ exit: 1, x: 92.67, y: 49.22, z: 73.5, w: 73 }], owner: '', locked: false },
+        { id: 2, name: 'Vinewood Hills 12', interior: 3, interiorName: 'Modern Mansion with a long name', entrances: 3, exits: 3, entranceList: [{ exit: 1, x: 10, y: 20, z: 30, w: 0 }, { exit: 2, x: 11.5, y: 21, z: 30, w: 90 }, { exit: 3, x: 12, y: 22, z: 31, w: 180 }], owner: 'ABC12345', ownerName: 'Marcus Webb', locked: true },
+        { id: 3, name: 'Grove Street Flat', interior: 2, interiorName: 'Low End Apartment', entrances: 1, exits: 1, entranceList: [{ exit: 1, x: 1, y: 2, z: 3, w: 4 }], owner: 'XYZ98765', ownerName: 'Dana Holloway', locked: false },
+        { id: 4, name: 'Mirror Park Garage Flat', interior: 4, interiorName: 'Garage Flat', entrances: 2, exits: 2, entranceList: [{ exit: 1, x: 5, y: 6, z: 7, w: 8 }, { exit: 2, x: 9, y: 9, z: 9, w: 9 }], owner: '', locked: true },
     ];
     let nextId = 5;
 
@@ -87,8 +87,34 @@
             case 'createHouse': {
                 if (fail) return { ok: false, error: 'Not implemented yet' };
                 const it = interiors.find((i) => i.id === d.interior);
-                houses = houses.concat({ id: nextId++, name: d.name, interiorName: it.name, entrances: d.entrances.length, owner: '', locked: false });
+                houses = houses.concat({ id: nextId++, name: d.name, interior: it.id, interiorName: it.name, entrances: d.entrances.length, exits: it.exits, entranceList: d.entrances, owner: '', locked: false });
                 return { ok: true };
+            }
+            case 'updateHouse': {
+                if (fail) return { ok: false, error: 'Not implemented yet' };
+                houses = houses.map((h) => (String(h.id) === String(d.house) ? { ...h, name: d.name, entrances: d.entrances.length, entranceList: d.entrances } : h));
+                return { ok: true, message: '"' + d.name + '" saved' };
+            }
+            case 'setLocked':
+            case 'setOwner':
+            case 'removeOwner':
+            case 'addKey':
+            case 'removeKey': {
+                if (fail) return { ok: false, error: 'Not implemented yet' };
+                const h = houses.find((x) => String(x.id) === String(d.house));
+                if (!h) return { ok: false, error: 'That house does not exist' };
+                const p = d.player !== undefined ? PLAYERS[d.player] : null;
+                if ((name === 'setOwner' || name === 'addKey') && !p) return { ok: false, error: 'No player with that ID is online' };
+                const keys = h.keyholders || [];
+                if (name === 'setLocked') h.locked = d.locked;
+                if (name === 'setOwner') { h.owner = p.citizenid; h.ownerName = p.name; h.keyholders = []; }
+                if (name === 'removeOwner') { h.owner = ''; h.ownerName = undefined; h.keyholders = []; }
+                if (name === 'addKey') {
+                    if (keys.some((k) => k.citizenid === p.citizenid)) return { ok: false, error: 'That player already has a key' };
+                    h.keyholders = keys.concat({ citizenid: p.citizenid, name: p.name });
+                }
+                if (name === 'removeKey') h.keyholders = keys.filter((k) => k.citizenid !== d.citizenid);
+                return { ok: true, message: 'Saved (' + name + ')' };
             }
             case 'sellHouse': {
                 if (fail) return { ok: false, error: 'Not implemented yet' };

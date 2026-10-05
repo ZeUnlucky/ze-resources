@@ -13,6 +13,7 @@
         <symbol id="i-list" viewBox="0 0 24 24"><path d="M5 6h14M5 12h14M5 18h9"/></symbol>
         <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
         <symbol id="i-tag" viewBox="0 0 24 24"><path d="M3.5 12.3V4.5a1 1 0 0 1 1-1h7.8l8.2 8.2a1.4 1.4 0 0 1 0 2l-6.8 6.8a1.4 1.4 0 0 1-2 0z"/><circle cx="8" cy="8" r="1.4"/></symbol>
+        <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19.5 8.5a2.1 2.1 0 0 0-3-3L5 17z"/><path d="m14.5 7.5 3 3"/></symbol>
         <symbol id="i-trash" viewBox="0 0 24 24"><path d="M5 7h14M10 7V4h4v3M7 7l1 13h8l1-13"/></symbol>
         <symbol id="i-search" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5 5"/></symbol>
         <symbol id="i-pin" viewBox="0 0 24 24"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></symbol>
@@ -62,10 +63,18 @@
 
                 <div class="group-title">Interior</div>
                 <div class="interiors" id="add-interiors"></div>
+                <p class="hint" id="interior-hint" hidden>The interior of an existing house cannot be changed, because people can be standing inside it. Delete the house and add it again to use another interior.</p>
 
                 <div class="group-title" id="entrances-title">Entrances</div>
                 <p class="hint" id="entrances-hint"></p>
                 <div id="add-entrances"></div>
+
+                <!-- only while editing a house -->
+                <div id="access" hidden>
+                    <div class="group-title">Lock, owner and keys</div>
+                    <p class="hint">These save as soon as you change them. The name and the entrances above still need Save changes.</p>
+                    <div id="access-body"></div>
+                </div>
             </div>
 
             <!-- ============ Sell house ============ -->
