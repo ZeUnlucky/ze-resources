@@ -65,7 +65,7 @@ QBCore.Commands.Add(Config.GiveKeyCmd, 'Give a friend a key to your house', {
     local citizenid = owner.PlayerData.citizenid
 
     local targetSource = tonumber(args[1])
-    if not targetSource then return notify(source, 'Use /' .. COMMAND .. ' [player id]', 'error') end
+    if not targetSource then return notify(source, 'Use /' .. Config.GiveKeyCmd .. ' [player id]', 'error') end
     if targetSource == source then return notify(source, 'You already have the keys to your own house', 'error') end
 
     local target = QBCore.Functions.GetPlayer(targetSource)

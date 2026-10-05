@@ -1,6 +1,6 @@
 /* ze-interiors NUI. Vanilla JS, no build step, no CDNs, no jQuery.
    Lua sends: open, data, close.
-   The UI sends back: getData, getPosition, lookupPlayer, createHouse, sellHouse, deleteHouse, close. (See README.md.) */
+   The UI sends back: getData, getPosition, setWaypoint, lookupPlayer, createHouse, sellHouse, deleteHouse, close. (See README.md.) */
 
 (() => {
     'use strict';
@@ -166,6 +166,16 @@
         row.appendChild(chips);
 
         const actions = el('div', 'house-actions');
+        const waypoint = el('button', 'btn-sm');
+        waypoint.type = 'button';
+        waypoint.title = 'Mark the front door on the map';
+        waypoint.append(icon('pin'), document.createTextNode('Set waypoint'));
+        waypoint.addEventListener('click', () => {
+            post('setWaypoint', { house: h.id }).then((res) => {
+                if (res && res.ok) toast(res.message || 'Waypoint set', 'ok');
+                else toast((res && res.error) || 'Could not set the waypoint', 'err');
+            });
+        });
         const sell = el('button', 'btn-sm');
         sell.type = 'button';
         sell.append(icon('tag'), document.createTextNode('Sell'));
@@ -179,7 +189,7 @@
         del.title = 'Delete house';
         del.appendChild(icon('trash'));
         del.addEventListener('click', () => askDelete(h));
-        actions.append(sell, del);
+        actions.append(waypoint, sell, del);
         row.appendChild(actions);
         return row;
     }

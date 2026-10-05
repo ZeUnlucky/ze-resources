@@ -8,7 +8,7 @@ Import `ze_houses.sql`, and start `oxmysql` before this resource. Houses live in
 
 The menu has three tabs:
 
-- **Houses**: searchable list with owner, lock state and entrance count, and a Sell and a Delete button on every row. Delete asks for confirmation.
+- **Houses**: searchable list with owner, lock state and entrance count, and a Set waypoint, a Sell and a Delete button on every row. Set waypoint marks the first entrance on the map (the client already holds every house, so it needs no server call). Delete asks for confirmation.
 - **Add house**: name, interior, and one entrance per exit of the chosen interior. The Create button stays disabled until every entrance has coordinates. "Use my position" fills an entrance from where you stand, and pasting a `vector4(...)` into any coordinate box fills all four.
 - **Sell house**: pick a house and type the buyer's server id. The buyer's name is looked up while you type.
 
@@ -48,7 +48,7 @@ Server callbacks (all return nothing / `ok = false` without the permission):
 
 `interior` and `house` are the ids from `getData`, `player` is a server id, `w` is the heading. The UI makes sure `#entrances` equals the interior's exit count, but re-check it in `createHouse`. After an `ok` reply the UI reloads the lists with `getData`, so the server has nothing else to push. `error` is shown to the admin as a red toast, `message` replaces the default green one.
 
-NUI messages from the client: `open { interiors, houses, accent? }`, `data { interiors, houses }` (refreshes the lists while the menu is open) and `close`. NUI callbacks to the client: `close`, `getData`, `getPosition`, `lookupPlayer`, `createHouse`, `sellHouse`, `deleteHouse`.
+NUI messages from the client: `open { interiors, houses, accent? }`, `data { interiors, houses }` (refreshes the lists while the menu is open) and `close`. NUI callbacks to the client: `close`, `getData`, `getPosition`, `setWaypoint` (`{ house }`, answered by the client itself with `{ ok, message?, error? }`), `lookupPlayer`, `createHouse`, `sellHouse`, `deleteHouse`.
 
 ## Previewing the UI without the game
 

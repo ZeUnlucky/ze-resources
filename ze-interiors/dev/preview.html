@@ -76,6 +76,10 @@
         switch (name) {
             case 'getData': return { interiors, houses };
             case 'getPosition': return { x: 92.67 + Math.random(), y: 49.22, z: 73.5, w: 73.0 };
+            case 'setWaypoint': {
+                const h = houses.find((x) => String(x.id) === String(d.house));
+                return h ? { ok: true, message: 'Waypoint set to ' + h.name } : { ok: false, error: 'That house does not exist' };
+            }
             case 'lookupPlayer': {
                 const p = PLAYERS[d.id];
                 return new Promise((r) => setTimeout(() => r(p ? { ok: true, name: p.name, citizenid: p.citizenid } : { ok: false, error: 'No player with that ID is online' }), 250));

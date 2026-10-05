@@ -50,6 +50,18 @@ RegisterNUICallback('getPosition', function(_, cb)
     cb({ x = coords.x, y = coords.y, z = coords.z, w = GetEntityHeading(ped) })
 end)
 
+-- "Set waypoint" on a house row. data = { house = house id }. Reply: { ok, message?, error? }
+-- Needs no server round trip: the client already has every house's entrances (synced by server/houses.lua).
+-- The menu only opens for players with permission, but a NUI callback can be called by anything, so check that it is open.
+RegisterNUICallback('setWaypoint', function(data, cb)
+    local house = menuOpen and type(data) == 'table' and Config.Houses[tonumber(data.house)] or nil
+    local door = house and house.entrances[1]
+    if not door then return cb({ ok = false, error = 'That house does not exist' }) end
+
+    SetNewWaypoint(door.x, door.y)
+    cb({ ok = true, message = ('Waypoint set to %s'):format(house.name) })
+end)
+
 -- Checks the buyer's player id while it is typed. data = { id = number }. Reply: { ok, name?, citizenid?, error? }
 RegisterNUICallback('lookupPlayer', function(data, cb)
     relay('ze-interiors:menu:lookupPlayer', data, cb, { ok = false, error = 'No answer from the server' })
